@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Пары</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Пары">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0f2a44">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+:root{
+  --bg:#f4efe6; --card:#fffdf8; --ink:#14212e; --muted:#6b7480; --line:#e4dccd;
+  --navy:#0f2a44; --accent:#e08a2c; --accent-soft:#fbe8d2; --exam:#b4372b; --exam-soft:#f7dcd8;
+  --ok:#2f7a55;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#0b1622; --card:#13212f; --ink:#ece6da; --muted:#93a0ad; --line:#223344;
+    --navy:#0b1622; --accent:#f0a04b; --accent-soft:#33261a; --exam:#ff7b6b; --exam-soft:#3a1f1c; --ok:#6fcf97; }
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg)}
+body{font:16px/1.35 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;color:var(--ink);
+  padding:env(safe-area-inset-top) 0 calc(env(safe-area-inset-bottom) + 24px);-webkit-font-smoothing:antialiased}
+header{background:var(--navy);color:#f4efe6;padding:14px 16px 0}
+.top{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.today{font-size:22px;font-weight:700;letter-spacing:-.01em}
+.week{font-size:13px;font-weight:600;padding:3px 9px;border-radius:99px;background:rgba(255,255,255,.12);white-space:nowrap}
+.week.up{background:var(--accent);color:#14212e}
+.now{margin:14px 0 0;padding:14px 16px;border-radius:16px 16px 0 0;background:var(--card);color:var(--ink)}
+.now .lbl{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--accent)}
+.now .room{font-size:40px;font-weight:800;letter-spacing:-.02em;line-height:1.05;margin-top:4px}
+.now .subj{font-size:17px;font-weight:600;margin-top:2px}
+.now .meta{font-size:14px;color:var(--muted);margin-top:2px}
+.bar{height:4px;border-radius:2px;background:var(--line);margin-top:10px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent)}
+nav{position:sticky;top:0;z-index:2;background:var(--bg);border-bottom:1px solid var(--line);padding:10px 8px 8px}
+.wk{display:flex;align-items:center;justify-content:space-between;padding:0 8px 8px;font-size:14px;color:var(--muted)}
+.wk button{background:none;border:0;color:var(--ink);font-size:22px;width:40px;height:32px;border-radius:8px}
+.wk button:active{background:var(--line)}
+.days{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.day{border:0;background:none;color:var(--ink);padding:6px 0 8px;border-radius:12px;font:inherit;position:relative}
+.day b{display:block;font-size:18px;font-weight:700}
+.day small{display:block;font-size:11px;color:var(--muted);text-transform:uppercase}
+.day.has::after{content:"";position:absolute;left:50%;bottom:3px;width:5px;height:5px;margin-left:-2.5px;border-radius:50%;background:var(--accent)}
+.day.ex::after{background:var(--exam)}
+.day.is-today b{color:var(--accent)}
+.day.sel{background:var(--navy);color:#f4efe6}
+.day.sel small{color:#c9d2db}
+.day.sel b{color:inherit}
+.day.sel.has::after{background:currentColor}
+@media (prefers-color-scheme: dark){.day.sel{background:var(--accent);color:#14212e}.day.sel small{color:#3b2a14}}
+main{padding:12px 16px}
+h2{font-size:15px;font-weight:700;color:var(--muted);margin:6px 0 10px}
+.les{display:grid;grid-template-columns:62px 1fr auto;gap:2px 12px;background:var(--card);border:1px solid var(--line);
+  border-radius:14px;padding:12px 14px;margin-bottom:10px}
+.les.cur{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.les.past{opacity:.5}
+.les .tm{grid-row:span 3;font-variant-numeric:tabular-nums;font-size:15px;font-weight:700}
+.les .tm span{display:block;font-weight:400;color:var(--muted);font-size:13px}
+.les .s{font-weight:600;font-size:16px}
+.les .r{grid-row:span 2;font-size:22px;font-weight:800;text-align:right;letter-spacing:-.01em}
+.les .m{font-size:14px;color:var(--muted)}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:99px;background:var(--line);color:var(--ink);margin-right:6px;vertical-align:1px}
+.tag.ЛР{background:var(--accent-soft)}
+.tag.Экзамен,.tag.Консультация{background:var(--exam-soft);color:var(--exam)}
+.note{grid-column:2 / 4;font-size:13px;font-weight:600;color:var(--exam);margin-top:2px}
+.empty{text-align:center;color:var(--muted);padding:28px 0}
+.empty b{display:block;color:var(--ink);font-size:17px;margin-bottom:4px}
+.foot{font-size:12px;color:var(--muted);text-align:center;padding:8px 16px}
+.exams{margin-top:18px}
+.exams a{display:flex;justify-content:space-between;gap:10px;text-decoration:none;color:var(--ink);padding:9px 0;border-bottom:1px solid var(--line);font-size:15px}
+.exams a span:last-child{color:var(--muted);white-space:nowrap}
+.exams a.done{opacity:.45}
+</style>
+</head>
+<body>
+<header>
+  <div class="top"><div class="today" id="today"></div><div class="week" id="week"></div></div>
+  <div class="now" id="now"></div>
+</header>
+<nav>
+  <div class="wk"><button id="prev" aria-label="Прошлая неделя">‹</button><span id="wklabel"></span><button id="next" aria-label="Следующая неделя">›</button></div>
+  <div class="days" id="days"></div>
+</nav>
+<main>
+  <h2 id="dtitle"></h2>
+  <div id="list"></div>
+  <div class="exams" id="exams"></div>
+</main>
+<div class="foot" id="foot"></div>
+<script>
+const DATA = {"meta": {"updated": "13.11.2026", "upperMonday": "2026-11-09", "group": "РН-23-04, подгруппа 1"}, "lessons": [{"d": "2026-11-09", "t": "10:15", "n": 1, "s": "Проектирование разработки (Petrel)", "ty": "ЛР", "r": "220", "te": "Тимофеева В.Н.", "note": ""}, {"d": "2026-11-09", "t": "12:00", "n": 1, "s": "Скважинная добыча нефти", "ty": "Лекция", "r": "202", "te": "Вербицкий В.С.", "note": ""}, {"d": "2026-11-09", "t": "14:00", "n": 2, "s": "Скважинная добыча нефти", "ty": "Семинар", "r": "219", "te": "Дроздов А.Н.", "note": ""}, {"d": "2026-11-11", "t": "14:00", "n": 1, "s": "НГП оборудование", "ty": "ЛР", "r": "П-10", "te": "Шайхулов Р.М.", "note": ""}, {"d": "2026-11-11", "t": "15:45", "n": 1, "s": "НГП оборудование", "ty": "Лекция", "r": "352", "te": "Деговцов А.В.", "note": ""}, {"d": "2026-11-11", "t": "17:20", "n": 1, "s": "НГП оборудование", "ty": "Семинар", "r": "1511", "te": "Шайхулов Р.М.", "note": ""}, {"d": "2026-11-12", "t": "8:30", "n": 1, "s": "Исследование скважин и пластов", "ty": "Лекция", "r": "202", "te": "Хабибуллин Р.А.", "note": ""}, {"d": "2026-11-12", "t": "10:15", "n": 1, "s": "Системы сбора и подготовки", "ty": "Лекция", "r": "202", "te": "Ламбин Д.Н.", "note": ""}, {"d": "2026-11-12", "t": "12:00", "n": 1, "s": "Система АРМ в добыче нефти", "ty": "Семинар", "r": "206", "te": "Дроздов А.Н.", "note": ""}, {"d": "2026-11-12", "t": "14:00", "n": 1, "s": "Исследование скважин и пластов", "ty": "Семинар", "r": "1619", "te": "Хабибуллин Р.А.", "note": ""}, {"d": "2026-11-13", "t": "8:30", "n": 1, "s": "Система АРМ в добыче нефти", "ty": "Лекция", "r": "202", "te": "Вербицкий В.С.", "note": ""}, {"d": "2026-11-13", "t": "10:15", "n": 1, "s": "Основы промысловой геофизики", "ty": "Лекция", "r": "202", "te": "Хохлова М.С.", "note": ""}, {"d": "2026-11-13", "t": "12:00", "n": 1, "s": "Системы сбора и подготовки", "ty": "Семинар", "r": "219", "te": "Ламбин Д.Н.", "note": ""}, {"d": "2026-11-13", "t": "14:00", "n": 1, "s": "Основы промысловой геофизики", "ty": "Семинар", "r": "509", "te": "Хохлова М.С.", "note": ""}, {"d": "2026-11-16", "t": "10:15", "n": 1, "s": "Управление продуктивностью скважин", "ty": "Семинар", "r": "206", "te": "Телков В.П.", "note": "перенос с 15:45, ауд. 206"}, {"d": "2026-11-16", "t": "12:00", "n": 1, "s": "Скважинная добыча нефти", "ty": "Лекция", "r": "202", "te": "Вербицкий В.С.", "note": ""}, {"d": "2026-11-16", "t": "14:00", "n": 1, "s": "Управление продуктивностью скважин", "ty": "Лекция", "r": "202", "te": "Телков В.П.", "note": ""}, {"d": "2026-11-16", "t": "17:20", "n": 1, "s": "Морские НГ проекты", "ty": "Семинар", "r": "1122", "te": "Григорьев О.Е.", "note": ""}, {"d": "2026-11-19", "t": "12:00", "n": 1, "s": "Проектирование разработки (Petrel)", "ty": "ЛР", "r": "220", "te": "Тимофеева В.Н.", "note": ""}, {"d": "2026-11-19", "t": "14:00", "n": 1, "s": "Морские НГ проекты", "ty": "Лекция", "r": "711", "te": "Богатырева Е.В.", "note": ""}, {"d": "2026-11-19", "t": "15:45", "n": 1, "s": "Экология", "ty": "Лекция", "r": "711", "te": "Газаров Р.А.", "note": ""}, {"d": "2026-11-20", "t": "10:15", "n": 1, "s": "Исследование скважин и пластов", "ty": "Семинар", "r": "219", "te": "Хабибуллин Р.А.", "note": ""}, {"d": "2026-11-20", "t": "12:00", "n": 1, "s": "Системы сбора и подготовки", "ty": "Семинар", "r": "232", "te": "Ламбин Д.Н.", "note": ""}, {"d": "2026-11-20", "t": "14:00", "n": 1, "s": "Скважинная добыча нефти", "ty": "Семинар", "r": "501", "te": "Дроздов А.Н.", "note": "разовая пара"}, {"d": "2026-11-23", "t": "10:15", "n": 1, "s": "Проектирование разработки (Petrel)", "ty": "ЛР", "r": "220", "te": "Тимофеева В.Н.", "note": ""}, {"d": "2026-11-23", "t": "12:00", "n": 1, "s": "Скважинная добыча нефти", "ty": "Лекция", "r": "202", "te": "Вербицкий В.С.", "note": ""}, {"d": "2026-11-23", "t": "14:00", "n": 2, "s": "Скважинная добыча нефти", "ty": "Семинар", "r": "219", "te": "Дроздов А.Н.", "note": ""}, {"d": "2026-11-25", "t": "14:00", "n": 1, "s": "НГП оборудование", "ty": "ЛР", "r": "П-10", "te": "Шайхулов Р.М.", "note": ""}, {"d": "2026-11-25", "t": "15:45", "n": 1, "s": "НГП оборудование", "ty": "Лекция", "r": "352", "te": "Деговцов А.В.", "note": ""}, {"d": "2026-11-25", "t": "17:20", "n": 1, "s": "НГП оборудование", "ty": "Семинар", "r": "1511", "te": "Шайхулов Р.М.", "note": ""}, {"d": "2026-11-26", "t": "8:30", "n": 1, "s": "Исследование скважин и пластов", "ty": "Лекция", "r": "202", "te": "Хабибуллин Р.А.", "note": ""}, {"d": "2026-11-26", "t": "10:15", "n": 1, "s": "Системы сбора и подготовки", "ty": "Лекция", "r": "202", "te": "Ламбин Д.Н.", "note": ""}, {"d": "2026-11-26", "t": "12:00", "n": 1, "s": "Система АРМ в добыче нефти", "ty": "Семинар", "r": "206", "te": "Дроздов А.Н.", "note": ""}, {"d": "2026-11-26", "t": "14:00", "n": 1, "s": "Исследование скважин и пластов", "ty": "Семинар", "r": "1619", "te": "Хабибуллин Р.А.", "note": ""}, {"d": "2026-11-27", "t": "8:30", "n": 1, "s": "Система АРМ в добыче нефти", "ty": "Лекция", "r": "202", "te": "Вербицкий В.С.", "note": ""}, {"d": "2026-11-27", "t": "10:15", "n": 1, "s": "Основы промысловой геофизики", "ty": "Лекция", "r": "202", "te": "Хохлова М.С.", "note": ""}, {"d": "2026-11-27", "t": "12:00", "n": 1, "s": "Системы сбора и подготовки", "ty": "Семинар", "r": "219", "te": "Ламбин Д.Н.", "note": ""}, {"d": "2026-11-27", "t": "14:00", "n": 1, "s": "Основы промысловой геофизики", "ty": "Семинар", "r": "509", "te": "Хохлова М.С.", "note": ""}, {"d": "2026-11-28", "t": "10:15", "n": 1, "s": "Экология", "ty": "Семинар", "r": "351", "te": "Вишневский В.Д.", "note": "перенос с 20.11"}, {"d": "2026-11-30", "t": "12:00", "n": 1, "s": "Скважинная добыча нефти", "ty": "Лекция", "r": "202", "te": "Вербицкий В.С.", "note": ""}, {"d": "2026-11-30", "t": "14:00", "n": 1, "s": "Управление продуктивностью скважин", "ty": "Лекция", "r": "202", "te": "Телков В.П.", "note": ""}, {"d": "2026-11-30", "t": "15:45", "n": 1, "s": "Управление продуктивностью скважин", "ty": "Семинар", "r": "501", "te": "Телков В.П.", "note": ""}, {"d": "2026-11-30", "t": "17:20", "n": 1, "s": "Морские НГ проекты", "ty": "Семинар", "r": "1122", "te": "Григорьев О.Е.", "note": ""}, {"d": "2026-12-03", "t": "12:00", "n": 1, "s": "Проектирование разработки (Petrel)", "ty": "ЛР", "r": "220", "te": "Тимофеева В.Н.", "note": ""}, {"d": "2026-12-03", "t": "14:00", "n": 1, "s": "Морские НГ проекты", "ty": "Лекция", "r": "711", "te": "Богатырева Е.В.", "note": ""}, {"d": "2026-12-03", "t": "15:45", "n": 1, "s": "Экология", "ty": "Лекция", "r": "711", "te": "Газаров Р.А.", "note": ""}, {"d": "2026-12-04", "t": "10:15", "n": 1, "s": "Исследование скважин и пластов", "ty": "Семинар", "r": "219", "te": "Хабибуллин Р.А.", "note": ""}, {"d": "2026-12-04", "t": "12:00", "n": 1, "s": "Системы сбора и подготовки", "ty": "Семинар", "r": "232", "te": "Ламбин Д.Н.", "note": ""}, {"d": "2026-12-07", "t": "10:15", "n": 1, "s": "Проектирование разработки (Petrel)", "ty": "ЛР", "r": "220", "te": "Тимофеева В.Н.", "note": ""}, {"d": "2026-12-07", "t": "12:00", "n": 1, "s": "Скважинная добыча нефти", "ty": "Лекция", "r": "202", "te": "Вербицкий В.С.", "note": ""}, {"d": "2026-12-07", "t": "14:00", "n": 2, "s": "Скважинная добыча нефти", "ty": "Семинар", "r": "219", "te": "Дроздов А.Н.", "note": ""}, {"d": "2026-12-09", "t": "14:00", "n": 1, "s": "НГП оборудование", "ty": "ЛР", "r": "П-10", "te": "Шайхулов Р.М.", "note": ""}, {"d": "2026-12-09", "t": "15:45", "n": 1, "s": "НГП оборудование", "ty": "Лекция", "r": "352", "te": "Деговцов А.В.", "note": ""}, {"d": "2026-12-09", "t": "17:20", "n": 1, "s": "НГП оборудование", "ty": "Семинар", "r": "1511", "te": "Шайхулов Р.М.", "note": ""}, {"d": "2026-12-10", "t": "8:30", "n": 1, "s": "Исследование скважин и пластов", "ty": "Лекция", "r": "202", "te": "Хабибуллин Р.А.", "note": ""}, {"d": "2026-12-10", "t": "10:15", "n": 1, "s": "Системы сбора и подготовки", "ty": "Лекция", "r": "202", "te": "Ламбин Д.Н.", "note": ""}, {"d": "2026-12-10", "t": "12:00", "n": 1, "s": "Система АРМ в добыче нефти", "ty": "Семинар", "r": "206", "te": "Дроздов А.Н.", "note": ""}, {"d": "2026-12-10", "t": "14:00", "n": 1, "s": "Исследование скважин и пластов", "ty": "Семинар", "r": "1619", "te": "Хабибуллин Р.А.", "note": ""}, {"d": "2026-12-11", "t": "8:30", "n": 1, "s": "Система АРМ в добыче нефти", "ty": "Лекция", "r": "202", "te": "Вербицкий В.С.", "note": ""}, {"d": "2026-12-11", "t": "10:15", "n": 1, "s": "Основы промысловой геофизики", "ty": "Лекция", "r": "202", "te": "Хохлова М.С.", "note": ""}, {"d": "2026-12-11", "t": "12:00", "n": 1, "s": "Системы сбора и подготовки", "ty": "Семинар", "r": "219", "te": "Ламбин Д.Н.", "note": ""}, {"d": "2026-12-11", "t": "14:00", "n": 1, "s": "Основы промысловой геофизики", "ty": "Семинар", "r": "509", "te": "Хохлова М.С.", "note": ""}, {"d": "2026-12-14", "t": "10:15", "n": 1, "s": "Проектирование разработки (Petrel)", "ty": "ЛР", "r": "220", "te": "Тимофеева В.Н.", "note": "разовая пара"}, {"d": "2026-12-14", "t": "12:00", "n": 1, "s": "Скважинная добыча нефти", "ty": "Лекция", "r": "202", "te": "Вербицкий В.С.", "note": ""}, {"d": "2026-12-14", "t": "14:00", "n": 1, "s": "Управление продуктивностью скважин", "ty": "Лекция", "r": "202", "te": "Телков В.П.", "note": ""}, {"d": "2026-12-14", "t": "15:45", "n": 1, "s": "Управление продуктивностью скважин", "ty": "Семинар", "r": "501", "te": "Телков В.П.", "note": ""}, {"d": "2026-12-14", "t": "17:20", "n": 1, "s": "Морские НГ проекты", "ty": "Семинар", "r": "1122", "te": "Григорьев О.Е.", "note": ""}, {"d": "2026-12-17", "t": "14:00", "n": 1, "s": "Морские НГ проекты", "ty": "Лекция", "r": "711", "te": "Богатырева Е.В.", "note": ""}, {"d": "2026-12-17", "t": "15:45", "n": 1, "s": "Экология", "ty": "Лекция", "r": "711", "te": "Газаров Р.А.", "note": ""}, {"d": "2026-12-18", "t": "10:15", "n": 1, "s": "Исследование скважин и пластов", "ty": "Семинар", "r": "219", "te": "Хабибуллин Р.А.", "note": ""}, {"d": "2026-12-18", "t": "12:00", "n": 1, "s": "Системы сбора и подготовки", "ty": "Семинар", "r": "232", "te": "Ламбин Д.Н.", "note": ""}, {"d": "2026-12-21", "t": "10:15", "n": 1, "s": "Проектирование разработки (Petrel)", "ty": "ЛР", "r": "220", "te": "Тимофеева В.Н.", "note": ""}, {"d": "2026-12-21", "t": "12:00", "n": 1, "s": "Скважинная добыча нефти", "ty": "Лекция", "r": "202", "te": "Вербицкий В.С.", "note": ""}, {"d": "2026-12-21", "t": "14:00", "n": 2, "s": "Скважинная добыча нефти", "ty": "Семинар", "r": "219", "te": "Дроздов А.Н.", "note": ""}, {"d": "2026-12-23", "t": "15:45", "n": 1, "s": "Проектирование разработки (Petrel)", "ty": "ЛР", "r": "220", "te": "Тимофеева В.Н.", "note": "перенос с 17.12"}, {"d": "2026-12-23", "t": "17:20", "n": 1, "s": "НГП оборудование", "ty": "Семинар", "r": "1511", "te": "Шайхулов Р.М.", "note": ""}, {"d": "2026-12-24", "t": "12:00", "n": 1, "s": "Система АРМ в добыче нефти", "ty": "Семинар", "r": "206", "te": "Дроздов А.Н.", "note": ""}, {"d": "2026-12-24", "t": "14:00", "n": 1, "s": "Исследование скважин и пластов", "ty": "Семинар", "r": "1619", "te": "Хабибуллин Р.А.", "note": ""}, {"d": "2026-12-24", "t": "15:45", "n": 1, "s": "Система АРМ в добыче нефти", "ty": "Семинар", "r": "206", "te": "Дроздов А.Н.", "note": "дополнительная пара"}, {"d": "2026-12-25", "t": "12:00", "n": 1, "s": "Системы сбора и подготовки", "ty": "Семинар", "r": "219", "te": "Ламбин Д.Н.", "note": ""}, {"d": "2026-12-25", "t": "14:00", "n": 1, "s": "Основы промысловой геофизики", "ty": "Семинар", "r": "509", "te": "Хохлова М.С.", "note": ""}, {"d": "2026-12-28", "t": "12:00", "n": 1, "s": "Скважинная добыча нефти", "ty": "Лекция", "r": "202", "te": "Вербицкий В.С.", "note": ""}, {"d": "2027-01-11", "t": "14:00", "n": 1, "s": "Исследование скважин и пластов", "ty": "Консультация", "r": "603", "te": "Хабибуллин Р.А.", "note": ""}, {"d": "2027-01-12", "t": "10:15", "n": 1, "s": "Исследование скважин и пластов", "ty": "Экзамен", "r": "605", "te": "Хабибуллин Р.А.", "note": ""}, {"d": "2027-01-15", "t": "14:00", "n": 1, "s": "НГП оборудование", "ty": "Консультация", "r": "607", "te": "Деговцов А.В.", "note": ""}, {"d": "2027-01-16", "t": "10:15", "n": 1, "s": "НГП оборудование", "ty": "Экзамен", "r": "607", "te": "Деговцов А.В.", "note": ""}, {"d": "2027-01-19", "t": "14:00", "n": 1, "s": "Управление продуктивностью скважин", "ty": "Консультация", "r": "618", "te": "Телков В.П.", "note": ""}, {"d": "2027-01-20", "t": "10:15", "n": 1, "s": "Управление продуктивностью скважин", "ty": "Экзамен", "r": "604", "te": "Телков В.П.", "note": ""}, {"d": "2027-01-23", "t": "14:00", "n": 1, "s": "Скважинная добыча нефти", "ty": "Консультация", "r": "816", "te": "Вербицкий В.С.", "note": ""}, {"d": "2027-01-25", "t": "10:15", "n": 1, "s": "Скважинная добыча нефти", "ty": "Экзамен", "r": "816", "te": "Вербицкий В.С.", "note": ""}]};
+const SLOTS = [["8:30","10:00"],["10:15","11:45"],["12:00","13:30"],["14:00","15:30"],["15:45","17:15"],["17:20","18:50"]];
+const WD = ["Пн","Вт","Ср","Чт","Пт","Сб","Вс"];
+const WDF = ["понедельник","вторник","среда","четверг","пятница","суббота","воскресенье"];
+const MON = ["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
+const mins = t => { const [h,m] = t.split(":").map(Number); return h*60+m; };
+const iso = d => d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+const parse = s => { const [y,m,d] = s.split("-").map(Number); return new Date(y,m-1,d); };
+const addD = (d,n) => { const x = new Date(d); x.setDate(x.getDate()+n); return x; };
+const monday = d => addD(d, -((d.getDay()+6)%7));
+const endOf = l => { const i = SLOTS.findIndex(s => s[0]===l.t); return i>=0 ? SLOTS[Math.min(i+l.n-1,5)][1] : l.t; };
+const UPMON = parse(DATA.meta.upperMonday);
+const isUpper = d => Math.round((monday(d)-UPMON)/864e5/7) % 2 === 0;
+const byDay = {};
+DATA.lessons.forEach(l => (byDay[l.d] = byDay[l.d] || []).push(l));
+const short = d => d.getDate()+" "+MON[d.getMonth()];
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+let now = new Date(), sel = new Date(now.getFullYear(), now.getMonth(), now.getDate()), viewMon = monday(sel);
+
+function nextLesson(){
+  const t = iso(now), m = now.getHours()*60+now.getMinutes();
+  for (const l of DATA.lessons){
+    if (l.d > t || (l.d === t && mins(endOf(l)) > m)) return l;
+  }
+  return null;
+}
+function renderHeader(){
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  document.getElementById("today").textContent = WD[(d.getDay()+6)%7]+", "+short(d);
+  const w = document.getElementById("week");
+  const up = isUpper(d); w.textContent = up ? "верхняя неделя" : "нижняя неделя"; w.className = "week"+(up?" up":"");
+  const l = nextLesson(), box = document.getElementById("now");
+  if (!l){ box.innerHTML = '<div class="lbl">Дальше</div><div class="subj">Пар больше нет — каникулы</div>'; return; }
+  const m = now.getHours()*60+now.getMinutes(), today = l.d === iso(now);
+  const going = today && mins(l.t) <= m;
+  let lbl;
+  if (going) lbl = "Сейчас · до "+endOf(l);
+  else if (today){ const left = mins(l.t)-m; lbl = "Следующая · через "+(left>=60? Math.floor(left/60)+" ч "+(left%60)+" мин" : left+" мин"); }
+  else { const ld = parse(l.d); const tomorrow = iso(addD(parse(iso(now)),1)) === l.d;
+    lbl = (tomorrow ? "Завтра" : WD[(ld.getDay()+6)%7]+", "+short(ld))+" · "+l.t; }
+  let bar = "";
+  if (going){ const a = mins(l.t), b = mins(endOf(l)); bar = '<div class="bar"><i style="width:'+Math.round((m-a)/(b-a)*100)+'%"></i></div>'; }
+  box.innerHTML = '<div class="lbl">'+lbl+'</div><div class="room">'+esc(l.r)+'</div><div class="subj">'+esc(l.s)+'</div>'+
+    '<div class="meta">'+esc(l.ty)+(today&&!going?' · '+l.t+'–'+endOf(l):'')+' · '+esc(l.te)+'</div>'+(l.note?'<div class="meta" style="color:var(--exam);font-weight:600">'+esc(l.note)+'</div>':'')+bar;
+}
+function renderWeek(){
+  const box = document.getElementById("days"); box.innerHTML = "";
+  const todayIso = iso(now);
+  for (let i=0;i<7;i++){
+    const d = addD(viewMon,i), k = iso(d), ls = byDay[k]||[];
+    const b = document.createElement("button");
+    b.className = "day"+(ls.length?" has":"")+(ls.some(l=>l.ty==="Экзамен")?" ex":"")+(k===todayIso?" is-today":"")+(k===iso(sel)?" sel":"");
+    b.innerHTML = "<small>"+WD[i]+"</small><b>"+d.getDate()+"</b>";
+    b.onclick = () => { sel = d; render(); };
+    box.appendChild(b);
+  }
+  const end = addD(viewMon,6);
+  document.getElementById("wklabel").textContent = short(viewMon)+" – "+short(end)+" · "+(isUpper(viewMon)?"верхняя":"нижняя");
+}
+function renderDay(){
+  const k = iso(sel), ls = byDay[k]||[];
+  document.getElementById("dtitle").textContent = WDF[(sel.getDay()+6)%7][0].toUpperCase()+WDF[(sel.getDay()+6)%7].slice(1)+", "+short(sel);
+  const box = document.getElementById("list");
+  if (!ls.length){
+    const nxt = DATA.lessons.find(l => l.d > k);
+    box.innerHTML = '<div class="empty"><b>Пар нет</b>'+(nxt? "Следующие — "+WD[(parse(nxt.d).getDay()+6)%7]+", "+short(parse(nxt.d)) : "")+'</div>';
+    return;
+  }
+  const tIso = iso(now), m = now.getHours()*60+now.getMinutes();
+  box.innerHTML = ls.map(l => {
+    const past = k < tIso || (k === tIso && mins(endOf(l)) <= m);
+    const cur = k === tIso && mins(l.t) <= m && m < mins(endOf(l));
+    return '<div class="les'+(past?" past":"")+(cur?" cur":"")+'"><div class="tm">'+l.t+'<span>'+endOf(l)+'</span></div>'+
+      '<div class="s">'+esc(l.s)+'</div><div class="r">'+esc(l.r)+'</div>'+
+      '<div class="m"><span class="tag '+esc(l.ty)+'">'+esc(l.ty)+(l.n>1?" ×"+l.n:"")+'</span>'+esc(l.te)+'</div>'+
+      (l.note?'<div class="note">'+esc(l.note)+'</div>':'')+'</div>';
+  }).join("");
+}
+function renderExams(){
+  const ex = DATA.lessons.filter(l => l.ty==="Экзамен"), t = iso(now);
+  document.getElementById("exams").innerHTML = '<h2>Экзамены</h2>'+ex.map(l => {
+    const d = parse(l.d);
+    return '<a href="#" data-d="'+l.d+'" class="'+(l.d<t?"done":"")+'"><span>'+esc(l.s)+'</span><span>'+WD[(d.getDay()+6)%7]+' '+short(d)+' · '+l.t+' · ауд. '+esc(l.r)+'</span></a>';
+  }).join("");
+  document.querySelectorAll("#exams a").forEach(a => a.onclick = e => { e.preventDefault(); sel = parse(a.dataset.d); viewMon = monday(sel); render(); window.scrollTo({top:0,behavior:"smooth"}); });
+}
+function render(){ now = new Date(); renderHeader(); renderWeek(); renderDay(); }
+document.getElementById("prev").onclick = () => { viewMon = addD(viewMon,-7); sel = viewMon; render(); };
+document.getElementById("next").onclick = () => { viewMon = addD(viewMon,7); sel = viewMon; render(); };
+let sx = null;
+document.querySelector("main").addEventListener("touchstart", e => sx = e.touches[0].clientX, {passive:true});
+document.querySelector("main").addEventListener("touchend", e => {
+  if (sx === null) return; const dx = e.changedTouches[0].clientX - sx; sx = null;
+  if (Math.abs(dx) < 60) return; sel = addD(sel, dx < 0 ? 1 : -1); viewMon = monday(sel); render();
+}, {passive:true});
+document.getElementById("foot").textContent = DATA.meta.group+" · данные на "+DATA.meta.updated;
+render(); renderExams();
+setInterval(render, 30000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden){ const t = new Date(); if (iso(t)!==iso(now)){ sel = new Date(t.getFullYear(),t.getMonth(),t.getDate()); viewMon = monday(sel);} render(); } });
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
+</script>
+</body>
+</html>
