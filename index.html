@@ -87,6 +87,13 @@ h2{font-size:15px;font-weight:700;color:var(--muted);margin:6px 0 10px}
 .tag.pg{background:var(--navy);color:#f4efe6}
 .foot a{color:inherit}
 .stale{color:var(--exam);font-weight:600}
+.wbox{display:flex;align-items:center;gap:12px;margin:14px 0 4px;padding:14px;background:var(--card);border:1px solid var(--line);border-radius:16px;position:relative}
+.wbox .ic{flex:none;width:44px;height:44px;border-radius:12px;background:var(--navy);display:flex;align-items:center;justify-content:center}
+.wbox .tx{flex:1;min-width:0}
+.wbox .tx b{display:block;font-size:16px}
+.wbox .tx span{display:block;font-size:13px;color:var(--muted);margin-top:1px}
+.wbtn{display:block;width:100%;margin-top:10px;border:0;border-radius:12px;padding:13px;background:var(--accent);color:#14212e;font:inherit;font-size:16px;font-weight:700;text-align:center;text-decoration:none}
+.wx{position:absolute;top:6px;right:8px;border:0;background:none;color:var(--muted);font-size:20px;line-height:1;padding:4px}
 </style>
 </head>
 <body>
@@ -102,6 +109,7 @@ h2{font-size:15px;font-weight:700;color:var(--muted);margin:6px 0 10px}
   <div class="opts"><div class="seg" id="pg"><button data-pg="1">1 подгруппа</button><button data-pg="2">2 подгруппа</button></div><button class="chip" id="mil">военка</button></div>
   <h2 id="dtitle"></h2>
   <div id="list"></div>
+  <div id="wbox"></div>
   <div class="exams" id="exams"></div>
 </main>
 <div class="foot" id="foot"></div>
@@ -218,13 +226,29 @@ function renderFoot(){
   const u = DATA.meta.updated || "", m = u.match(/^(\d\d)\.(\d\d)\.(\d{4})/);
   const age = m ? (new Date() - new Date(+m[3], +m[2]-1, +m[1])) / 864e5 : 99;
   const f = document.getElementById("foot");
-  f.innerHTML = esc(DATA.meta.group)+' · '+PG+' подгруппа · <span class="'+(age>2?"stale":"")+'">с сайта Губкина, обновлено '+esc(u||"—")+'</span> · <a href="widget.html">виджет на телефон</a>'+
+  f.innerHTML = esc(DATA.meta.group)+' · '+PG+' подгруппа · <span class="'+(age>2?"stale":"")+'">с сайта Губкина, обновлено '+esc(u||"—")+'</span>'+(window.ParyApp ? '' : ' · <a href="widget.html">виджет на телефон</a>')+
     (navigator.share ? ' · <a href="#" id="share">поделиться</a>' : '');
   const s = document.getElementById("share");
   if (s) s.onclick = e => { e.preventDefault(); navigator.share({title:"Пары "+DATA.meta.group, url: location.origin+location.pathname+"?pg="+PG}).catch(()=>{}); };
 }
-function refresh(){ applyFilter(); render(); renderExams(); renderFoot(); }
-document.querySelectorAll("#pg button").forEach(b => b.onclick = () => { PG = b.dataset.pg; store("pg", PG); refresh(); });
+function refresh(){ applyFilter(); render(); renderExams(); renderFoot(); renderWidgetBox(); }
+function renderWidgetBox(){
+  const box = document.getElementById("wbox"), app = window.ParyApp;
+  let has = false; if (app) try { has = app.hasWidget(); } catch(e) {}
+  if (has || (!app && store("wclosed") === "1")) { box.innerHTML = ""; box.className = ""; return; }
+  const ico = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#f4efe6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M17.5 14v7M14 17.5h7"/></svg>';
+  box.innerHTML = '<div style="flex:1"><div style="display:flex;align-items:center;gap:12px"><div class="ic">'+ico+'</div><div class="tx"><b>Виджет на экран</b><span>Ближайшая пара и аудитория — не открывая '+(app?'приложение':'сайт')+'</span></div></div>'+
+    (app ? '<button class="wbtn" id="wadd">Добавить виджет</button>' : '<a class="wbtn" href="widget.html">Поставить виджет</a>')+'</div>'+
+    (app ? '' : '<button class="wx" id="wx" aria-label="Скрыть">×</button>');
+  box.className = "wbox";
+  const add = document.getElementById("wadd");
+  if (add) add.onclick = () => { try { app.addWidget(); } catch(e) {} setTimeout(renderWidgetBox, 4000); };
+  const x = document.getElementById("wx");
+  if (x) x.onclick = () => { store("wclosed","1"); box.innerHTML = ""; box.className = ""; };
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden) renderWidgetBox(); });
+
+document.querySelectorAll("#pg button").forEach(b => b.onclick = () => { PG = b.dataset.pg; store("pg", PG); if (window.ParyApp) try { ParyApp.setPg(PG); } catch(e) {} refresh(); });
 document.getElementById("mil").onclick = () => { MIL = !MIL; store("mil", MIL ? "1" : "0"); refresh(); };
 function load(){
   return fetch("data.json", {cache: "no-store"}).then(r => { if (!r.ok) throw 0; return r.json(); }).then(d => {
