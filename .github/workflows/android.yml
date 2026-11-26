@@ -1,0 +1,44 @@
+name: Android APK
+
+on:
+  push:
+    paths: ["android/**", ".github/workflows/android.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+
+concurrency: { group: android, cancel-in-progress: true }
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "17" }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: "8.10.2" }
+      - name: Keystore
+        run: echo "${{ secrets.KEYSTORE_B64 }}" | base64 -d > "$RUNNER_TEMP/pary.p12"
+      - name: Build
+        env:
+          KEYSTORE_PATH: ${{ runner.temp }}/pary.p12
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          VERSION_CODE: ${{ github.run_number }}
+        run: gradle -p android assembleRelease --no-daemon --stacktrace
+      - uses: actions/upload-artifact@v4
+        with: { name: pary-apk, path: android/build/outputs/apk/release/*.apk }
+      - name: Publish pary.apk to site
+        if: github.ref == 'refs/heads/main'
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          cp android/build/outputs/apk/release/*-release.apk pary.apk
+          echo "{\"version\": \"1.${{ github.run_number }}\", \"built\": \"$(date -u +%Y-%m-%dT%H:%MZ)\"}" > pary-apk.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pary.apk pary-apk.json
+          git commit -m "APK 1.${{ github.run_number }}" || exit 0
+          git pull --rebase && git push
+          gh api -X POST "repos/${{ github.repository }}/pages/builds" || true
