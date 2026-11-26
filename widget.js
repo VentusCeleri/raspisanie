@@ -1,6 +1,7 @@
 // Variables used by Scriptable.
 // These must be at the top of the file. Do not edit.
 // icon-color: deep-blue; icon-glyph: calendar-alt;
+// PARY_WIDGET v2
 // Виджет «Пары» — расписание РН-23-04 с сайта ventusceleri.github.io/raspisanie
 // Данные сайт обновляет сам 2 раза в день. Без интернета виджет берёт последнюю копию.
 // Подгруппа: параметр виджета (долгое нажатие → «Изменить виджет» → Parameter): 1 или 2. По умолчанию 1.

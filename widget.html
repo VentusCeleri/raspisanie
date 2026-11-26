@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Виджет «Пары»</title>
+<meta name="theme-color" content="#0f2a44">
+<link rel="icon" href="icon-180.png">
+<style>
+:root{--bg:#f4efe6;--card:#fffdf8;--ink:#14212e;--muted:#6b7480;--line:#e4dccd;--navy:#0f2a44;--accent:#e08a2c;--accent-ink:#9a540c}
+@media (prefers-color-scheme: dark){:root{--bg:#0b1622;--card:#13212f;--ink:#ece6da;--muted:#93a0ad;--line:#223344;--navy:#0b1622;--accent:#f0a04b;--accent-ink:#f0a04b}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:env(safe-area-inset-top) 0 40px}
+header{background:var(--navy);color:#f4efe6;padding:18px 16px 20px}
+header a{color:#f4efe6;opacity:.75;font-size:14px;text-decoration:none}
+h1{font-size:26px;letter-spacing:-.01em;margin-top:8px}
+header p{opacity:.8;margin-top:4px;font-size:15px}
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:16px 16px 0;background:var(--line);padding:4px;border-radius:12px}
+.tabs button{border:0;background:none;color:var(--ink);font:600 15px/1 inherit;padding:10px;border-radius:9px;font-family:inherit}
+.tabs button.on{background:var(--card);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+section{display:none;padding:8px 16px}
+section.on{display:block}
+ol{list-style:none;counter-reset:s}
+ol>li{counter-increment:s;position:relative;padding:14px 0 14px 40px;border-bottom:1px solid var(--line)}
+ol>li::before{content:counter(s);position:absolute;left:0;top:13px;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#14212e;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:15px}
+li b{font-weight:650}
+.btn{display:inline-block;margin-top:10px;background:var(--navy);color:#f4efe6;border:0;border-radius:12px;padding:12px 18px;font:600 16px inherit;font-family:inherit;text-decoration:none}
+@media (prefers-color-scheme: dark){.btn{background:var(--accent);color:#14212e}}
+.btn.ok{background:#2f7a55;color:#fff}
+.hint{font-size:14px;color:var(--muted);margin-top:6px}
+code{font:13px ui-monospace,Menlo,monospace;background:var(--line);padding:1px 5px;border-radius:5px}
+textarea{width:100%;height:120px;margin-top:10px;font:12px ui-monospace,Menlo,monospace;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:8px;display:none}
+.what{margin:16px 0 4px;padding:14px;background:var(--card);border:1px solid var(--line);border-radius:14px;font-size:15px}
+.what b{color:var(--accent-ink)}
+</style>
+</head>
+<body>
+<header>
+  <a href="./">← расписание</a>
+  <h1>Виджет «Пары»</h1>
+  <p>Текущая и следующая пара с аудиторией прямо на экране телефона. Расписание обновляется само с сайта Губкина.</p>
+</header>
+<div class="tabs"><button id="t-ios">iPhone</button><button id="t-and">Android</button></div>
+
+<section id="ios">
+  <div class="what">Нужно бесплатное приложение <b>Scriptable</b> — оно рисует виджет. Ставишь один раз, дальше всё обновляется само.</div>
+  <ol>
+    <li>Установи <b>Scriptable</b> из App Store.<br><a class="btn" href="https://apps.apple.com/app/scriptable/id1405459188">Открыть в App Store</a></li>
+    <li>Скопируй код виджета:<br><button class="btn" id="copy">Скопировать код</button>
+      <div class="hint">Если кнопка не сработала — выдели текст ниже целиком и скопируй.</div>
+      <textarea id="code" readonly>// Variables used by Scriptable.
+// These must be at the top of the file. Do not edit.
+// icon-color: deep-blue; icon-glyph: calendar-alt;
+// «Пары» — виджет расписания РН-23-04. Код виджета подгружается с сайта и обновляется сам.
+// Подгруппа: зажми виджет → «Изменить виджет» → Parameter: 1 или 2.
+const U = &quot;https://ventusceleri.github.io/raspisanie/widget.js&quot;;
+const fm = FileManager.local(), p = fm.joinPath(fm.documentsDirectory(), &quot;pary-widget.js&quot;);
+try {
+  const r = new Request(U + &quot;?t=&quot; + Date.now()); r.timeoutInterval = 8;
+  const s = await r.loadString();
+  if (s.includes(&quot;PARY_WIDGET&quot;)) fm.writeString(p, s);
+} catch (e) {}
+if (!fm.fileExists(p)) throw new Error(&quot;Первый запуск нужен с интернетом&quot;);
+const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+await new AsyncFunction(fm.readString(p))();
+</textarea></li>
+    <li>Открой Scriptable → <b>«+»</b> вверху справа → вставь код (долгое нажатие → «Вставить»). Нажми на название сверху и назови <b>Пары</b> → <b>Done</b>.</li>
+    <li>На экране «Домой» зажми пустое место → <b>«+»</b> → <b>Scriptable</b> → выбери размер → «Добавить виджет».</li>
+    <li>Зажми виджет → <b>«Изменить виджет»</b> → Script: <b>Пары</b>. Если ты во <b>2 подгруппе</b> — в поле Parameter напиши <code>2</code>.</li>
+  </ol>
+  <p class="hint">Можно добавить и на экран блокировки: зажми его → «Настроить» → виджеты → Scriptable → «Пары».</p>
+</section>
+
+<section id="and">
+  <div class="what">Маленькое приложение <b>«Пары»</b> с виджетом. Не из Google Play — ставится файлом, поэтому телефон попросит разрешение.</div>
+  <ol>
+    <li>Скачай приложение:<br><a class="btn" id="apk" href="pary.apk" download>Скачать pary.apk</a><div class="hint" id="apkv"></div></li>
+    <li>Открой скачанный файл (шторка уведомлений или «Загрузки»). Если телефон скажет, что установка из этого источника запрещена, нажми <b>«Настройки»</b> → включи <b>«Разрешить из этого источника»</b> → назад → <b>«Установить»</b>.</li>
+    <li>Открой приложение <b>«Пары»</b> и выбери свою подгруппу.</li>
+    <li>Зажми пустое место на рабочем столе → <b>«Виджеты»</b> → найди <b>«Пары»</b> → перетащи на экран. Размер можно растянуть: в большом видно весь день.</li>
+  </ol>
+  <p class="hint">Google Play Защита может предупредить «неизвестное приложение» — это нормально для приложений не из магазина. Нажми «Всё равно установить». На Xiaomi/Huawei, если виджет перестал обновляться, разреши «Парам» автозапуск.</p>
+</section>
+
+<script>
+const ios = /iPhone|iPad|iPod/.test(navigator.userAgent), and = /Android/.test(navigator.userAgent);
+function show(k){ ["ios","and"].forEach(x=>{document.getElementById(x).classList.toggle("on",x===k);document.getElementById("t-"+x).classList.toggle("on",x===k)}); }
+document.getElementById("t-ios").onclick=()=>show("ios");
+document.getElementById("t-and").onclick=()=>show("and");
+show(and ? "and" : "ios");
+const code = document.getElementById("code");
+document.getElementById("copy").onclick = async e => {
+  const b = e.currentTarget;
+  try { await navigator.clipboard.writeText(code.value); b.textContent = "Скопировано ✓"; b.classList.add("ok"); }
+  catch(_) { code.style.display = "block"; code.focus(); code.select(); b.textContent = "Выдели и скопируй текст ниже"; }
+};
+fetch("pary-apk.json?t="+Date.now()).then(r=>r.json()).then(j=>{document.getElementById("apkv").textContent="Версия "+j.version+", собрана "+j.built.slice(0,10).split("-").reverse().join(".");}).catch(()=>{});
+</script>
+</body>
+</html>

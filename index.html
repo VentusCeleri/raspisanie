@@ -218,7 +218,7 @@ function renderFoot(){
   const u = DATA.meta.updated || "", m = u.match(/^(\d\d)\.(\d\d)\.(\d{4})/);
   const age = m ? (new Date() - new Date(+m[3], +m[2]-1, +m[1])) / 864e5 : 99;
   const f = document.getElementById("foot");
-  f.innerHTML = esc(DATA.meta.group)+' · '+PG+' подгруппа · <span class="'+(age>2?"stale":"")+'">с сайта Губкина, обновлено '+esc(u||"—")+'</span>'+
+  f.innerHTML = esc(DATA.meta.group)+' · '+PG+' подгруппа · <span class="'+(age>2?"stale":"")+'">с сайта Губкина, обновлено '+esc(u||"—")+'</span> · <a href="widget.html">виджет на телефон</a>'+
     (navigator.share ? ' · <a href="#" id="share">поделиться</a>' : '');
   const s = document.getElementById("share");
   if (s) s.onclick = e => { e.preventDefault(); navigator.share({title:"Пары "+DATA.meta.group, url: location.origin+location.pathname+"?pg="+PG}).catch(()=>{}); };
