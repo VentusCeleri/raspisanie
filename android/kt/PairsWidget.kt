@@ -9,7 +9,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Color
-import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.widget.RemoteViews
@@ -87,7 +86,8 @@ class PairsWidget : AppWidgetProvider() {
             v.setTextColor(R.id.note, exam)
 
             val open = PendingIntent.getActivity(ctx, 2,
-                Intent(Intent.ACTION_VIEW, Uri.parse(SITE + "?pg=" + pg)), PendingIntent.FLAG_IMMUTABLE)
+                Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                PendingIntent.FLAG_IMMUTABLE)
             v.setOnClickPendingIntent(R.id.root, open)
 
             if (snap == null) {
