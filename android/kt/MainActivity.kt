@@ -575,8 +575,7 @@ private fun shareApp(ctx: android.content.Context) {
     val send = Intent(Intent.ACTION_SEND).apply {
         type = "text/plain"
         putExtra(Intent.EXTRA_SUBJECT, "Пары РГУ")
-        putExtra(Intent.EXTRA_TEXT, Repository.SHARE_MESSAGE + "
-" + Repository.SHARE_URL)
+        putExtra(Intent.EXTRA_TEXT, Repository.SHARE_MESSAGE + " " + Repository.SHARE_URL)
     }
     ctx.startActivity(Intent.createChooser(send, "Поделиться приложением"))
 }
