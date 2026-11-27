@@ -291,7 +291,7 @@ struct LessonRow: View {
         }
         .padding(14)
         .background(c.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .opacity(l.isCancelled ? 0.55 : 1)
+        .opacity(l.isCancelled ? 0.55 : (item.end < Date() ? 0.6 : 1))
     }
 }
 

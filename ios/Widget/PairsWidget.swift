@@ -256,11 +256,15 @@ struct PairsWidgetView: View {
             }
             .frame(width: 140, alignment: .leading)
             VStack(alignment: .leading, spacing: 6) {
-                Text(restTitle).font(.system(size: 10, weight: .bold)).foregroundStyle(c.muted)
-                if state.rest.isEmpty {
-                    Text(state.focus == nil ? "" : "больше пар нет").font(.caption).foregroundStyle(c.muted)
-                } else {
+                if !state.rest.isEmpty {
+                    Text(restTitle).font(.system(size: 10, weight: .bold)).foregroundStyle(c.muted)
                     restList(state.rest, max: 4)
+                } else if let d = state.followingDay {
+                    Text(Schedule.relativeDay(d, now: entry.date).uppercased())
+                        .font(.system(size: 10, weight: .bold)).foregroundStyle(c.muted)
+                    restList(state.followingLessons, max: 4)
+                } else {
+                    Text(state.focus == nil ? "" : "больше пар нет").font(.caption).foregroundStyle(c.muted)
                 }
                 Spacer(minLength: 0)
             }
