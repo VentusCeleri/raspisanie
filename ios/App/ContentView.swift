@@ -53,6 +53,10 @@ struct ContentView: View {
             }
         }
         .tint(c.accent)
+        .onAppear {
+            // Used by the screenshot workflow: `-openSettings` opens the settings sheet on launch.
+            if ProcessInfo.processInfo.arguments.contains("-openSettings") { showSettings = true }
+        }
         .sheet(isPresented: $showSettings) {
             SettingsView()
                 .environmentObject(model)
