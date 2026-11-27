@@ -75,7 +75,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         WidgetUpdates.updateNow(ctx)
     }
 
-    fun select(g: GroupInfo) = change { it.copy(groupId = g.id, groupCode = g.code) }
+    fun select(g: GroupInfo) = change { it.activate(GroupRef(g.id, g.code)) }
+    fun activate(g: GroupRef) = change { it.activate(g) }
+    fun remove(id: Int) = change { it.remove(id) }
+    fun cycle(delta: Int) = change { it.cycle(delta) }
 
     fun refresh(force: Boolean = true) {
         val group = settings.value.groupId ?: return
@@ -102,7 +105,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         // Group chosen by id only (screenshot launch extras): fill in its code from the list.
         val s = settings.value
         if (s.groupId != null && s.groupCode == null) {
-            list.firstOrNull { it.id == s.groupId }?.let { g -> Repository.update(ctx) { it.copy(groupCode = g.code) } }
+            list.firstOrNull { it.id == s.groupId }?.let { g ->
+                Repository.update(ctx) { st -> st.copy(groupCode = g.code,
+                    savedGroups = st.savedGroups.map { if (it.id == g.id) GroupRef(g.id, g.code) else it }) }
+            }
         }
     }
 }
@@ -164,7 +170,8 @@ private fun App(vm: AppViewModel, s: AppSettings, c: Swatch) {
             needsGroup -> GroupPicker(vm, c, s, onboarding = true) {}
             screen == Screen.GROUPS -> GroupPicker(vm, c, s, onboarding = false) { screen = Screen.SETTINGS }
             screen == Screen.SETTINGS -> SettingsScreen(vm, s, c, onGroups = { screen = Screen.GROUPS }) { screen = Screen.MAIN }
-            else -> MainScreen(vm, s, c) { screen = Screen.SETTINGS }
+            else -> MainScreen(vm, s, c, openSettings = { screen = Screen.SETTINGS },
+                               openGroups = { screen = Screen.GROUPS })
         }
     }
     BackHandler(enabled = !needsGroup && screen != Screen.MAIN) {
@@ -176,7 +183,7 @@ private fun App(vm: AppViewModel, s: AppSettings, c: Swatch) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun MainScreen(vm: AppViewModel, s: AppSettings, c: Swatch, openSettings: () -> Unit) {
+private fun MainScreen(vm: AppViewModel, s: AppSettings, c: Swatch, openSettings: () -> Unit, openGroups: () -> Unit) {
     val data by vm.data.collectAsStateWithLifecycle()
     val loading by vm.loading.collectAsStateWithLifecycle()
     val offline by vm.offline.collectAsStateWithLifecycle()
@@ -191,8 +198,9 @@ private fun MainScreen(vm: AppViewModel, s: AppSettings, c: Swatch, openSettings
     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Pill("Сегодня", c) { selected = Schedule.today() }
-            Text(s.groupCode ?: "Пары", Modifier.weight(1f), color = c.ink, fontWeight = FontWeight.SemiBold,
-                 fontSize = 18.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                GroupTitle(vm, s, c, onAdd = openGroups)
+            }
             val ctx = androidx.compose.ui.platform.LocalContext.current
             IconButton(onClick = { shareApp(ctx) }, Modifier.clip(CircleShape).background(c.card)) {
                 Icon(Icons.Default.Share, contentDescription = "Поделиться приложением", tint = c.accent)
@@ -231,6 +239,42 @@ private fun MainScreen(vm: AppViewModel, s: AppSettings, c: Swatch, openSettings
                     }
                 }
             }
+        }
+    }
+}
+
+/** Group code in the header: swipe left/right to switch followed groups, tap for a menu. */
+@Composable
+private fun GroupTitle(vm: AppViewModel, s: AppSettings, c: Swatch, onAdd: () -> Unit) {
+    var menu by remember { mutableStateOf(false) }
+    val groups = s.groups
+    Column(
+        Modifier.clip(RoundedCornerShape(12.dp)).clickable { menu = true }
+            .pointerInput(groups.size, s.groupId) {
+                var total = 0f
+                detectHorizontalDragGestures(onDragStart = { total = 0f }, onDragEnd = {
+                    if (total < -80) vm.cycle(1) else if (total > 80) vm.cycle(-1)
+                }) { _, dx -> total += dx }
+            }
+            .padding(horizontal = 20.dp, vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text((s.groupCode ?: "Пары") + " ▾", color = c.ink, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
+        if (groups.size > 1) {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(top = 3.dp)) {
+                groups.forEach { g ->
+                    Box(Modifier.size(5.dp).clip(CircleShape)
+                        .background(if (g.id == s.groupId) c.accent else c.muted.copy(alpha = 0.4f)))
+                }
+            }
+        }
+        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, containerColor = c.card) {
+            groups.forEach { g ->
+                DropdownMenuItem(text = { Text(g.code, color = c.ink) }, onClick = { menu = false; vm.activate(g) },
+                    trailingIcon = { if (g.id == s.groupId) Icon(Icons.Default.Check, null, tint = c.accent) })
+            }
+            HorizontalDivider(color = c.line)
+            DropdownMenuItem(text = { Text("+ Добавить группу", color = c.accent) }, onClick = { menu = false; onAdd() })
         }
     }
 }
@@ -409,10 +453,20 @@ private fun SettingsScreen(vm: AppViewModel, s: AppSettings, c: Swatch, onGroups
             item { Header("Расписание", c) }
             item {
                 Card(c) {
-                    Row(Modifier.fillMaxWidth().clickable(onClick = onGroups).padding(vertical = 6.dp)) {
-                        Text("Группа", color = c.ink, modifier = Modifier.weight(1f), fontSize = 16.sp)
-                        Text(s.groupCode ?: "не выбрана", color = c.accent, fontSize = 16.sp)
+                    Text("Мои группы", color = c.muted, fontSize = 13.sp)
+                    s.groups.forEach { g ->
+                        Row(Modifier.fillMaxWidth().clickable { vm.activate(g) }.padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Text(g.code, color = c.ink, fontSize = 16.sp, modifier = Modifier.weight(1f),
+                                 fontWeight = if (g.id == s.groupId) FontWeight.SemiBold else FontWeight.Normal)
+                            if (g.id == s.groupId) Icon(Icons.Default.Check, null, tint = c.accent)
+                            if (s.groups.size > 1) Text("  ✕", color = c.muted, fontSize = 16.sp,
+                                                        modifier = Modifier.clickable { vm.remove(g.id) })
+                        }
                     }
+                    Text("+ Добавить группу", color = c.accent, fontSize = 16.sp,
+                         modifier = Modifier.fillMaxWidth().clickable(onClick = onGroups).padding(vertical = 6.dp))
+                    Text("Переключать группы — свайпом по названию вверху главного экрана", color = c.muted, fontSize = 12.sp)
                     HorizontalDivider(color = c.line)
                     Segmented(listOf("1 подгруппа", "2 подгруппа"), s.subgroup - 1, c) { i -> vm.change { it.copy(subgroup = i + 1) } }
                     HorizontalDivider(color = c.line)

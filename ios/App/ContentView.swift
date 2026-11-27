@@ -6,6 +6,7 @@ struct ContentView: View {
 
     @State private var selectedDay = Schedule.startOfDay(Date())
     @State private var showSettings = false
+    @State private var showAddGroup = false
 
     private var c: Swatch { model.palette.colors(scheme) }
     private var needsGroup: Bool { model.settings.groupId == nil }
@@ -40,10 +41,12 @@ struct ContentView: View {
             }
             .refreshable { await model.refresh() }
             .background(c.bg.ignoresSafeArea())
-            .navigationTitle(model.settings.groupCode ?? "Пары")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(c.bg, for: .navigationBar)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    GroupSwitcher(c: c) { showAddGroup = true }
+                }
                 ToolbarItem(placement: .topBarLeading) {
                     Button { selectedDay = Schedule.startOfDay(Date()) } label: { Text("Сегодня") }
                 }
@@ -66,6 +69,9 @@ struct ContentView: View {
         .sheet(isPresented: .constant(needsGroup)) {
             GroupPickerView(isOnboarding: true)
                 .environmentObject(model)
+        }
+        .sheet(isPresented: $showAddGroup) {
+            GroupPickerView().environmentObject(model)
         }
         .sheet(isPresented: $showSettings) {
             SettingsView()
@@ -105,6 +111,50 @@ struct ContentView: View {
         .foregroundStyle(c.muted)
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.top, 8)
+    }
+}
+
+// MARK: - Group switcher (title)
+
+/// Group code in the nav bar: swipe left/right to switch followed groups, tap for a menu.
+struct GroupSwitcher: View {
+    @EnvironmentObject private var model: AppModel
+    let c: Swatch
+    let addGroup: () -> Void
+
+    var body: some View {
+        let groups = model.settings.groups
+        Menu {
+            ForEach(groups) { g in
+                Button { model.activate(g) } label: {
+                    if g.id == model.settings.groupId { Label(g.code, systemImage: "checkmark") } else { Text(g.code) }
+                }
+            }
+            Divider()
+            Button { addGroup() } label: { Label("Добавить группу", systemImage: "plus") }
+        } label: {
+            VStack(spacing: 3) {
+                HStack(spacing: 4) {
+                    Text(model.settings.groupCode ?? "Пары").font(.headline).foregroundStyle(c.ink)
+                    Image(systemName: "chevron.down").font(.caption2.weight(.bold)).foregroundStyle(c.muted)
+                }
+                if groups.count > 1 {
+                    HStack(spacing: 4) {
+                        ForEach(groups) { g in
+                            Circle().fill(g.id == model.settings.groupId ? c.accent : c.muted.opacity(0.4))
+                                .frame(width: 5, height: 5)
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 24)
+            .contentShape(Rectangle())
+        }
+        .highPriorityGesture(DragGesture(minimumDistance: 20).onEnded { v in
+            if v.translation.width < -40 { withAnimation { model.cycle(1) } }
+            if v.translation.width > 40 { withAnimation { model.cycle(-1) } }
+        })
+        .accessibilityLabel("Группа \(model.settings.groupCode ?? ""). Смахните, чтобы переключить")
     }
 }
 

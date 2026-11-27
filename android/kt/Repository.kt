@@ -9,9 +9,13 @@ import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 
+data class GroupRef(val id: Int, val code: String)
+
 data class AppSettings(
     val groupId: Int? = null,
     val groupCode: String? = null,
+    /** All followed groups, user order. Empty in settings saved before 2.2. */
+    val savedGroups: List<GroupRef> = emptyList(),
     val subgroup: Int = 1,
     val showMilitary: Boolean = false,
     val theme: String = ThemeId.SAND.key,
@@ -19,6 +23,37 @@ data class AppSettings(
 ) {
     val themeId get() = ThemeId.from(theme)
     val appearanceMode get() = Appearance.from(appearance)
+
+    /** Followed groups; always contains the active one. */
+    val groups: List<GroupRef>
+        get() {
+            val id = groupId ?: return savedGroups
+            return if (savedGroups.any { it.id == id }) savedGroups
+                   else listOf(GroupRef(id, groupCode ?: "Группа")) + savedGroups
+        }
+
+    fun activate(g: GroupRef): AppSettings {
+        val list = if (groups.any { it.id == g.id }) groups else groups + g
+        return copy(savedGroups = list, groupId = g.id, groupCode = g.code)
+    }
+
+    fun remove(id: Int): AppSettings {
+        val list = groups
+        val i = list.indexOfFirst { it.id == id }
+        if (list.size < 2 || i < 0) return this
+        val rest = list.filterNot { it.id == id }
+        if (groupId != id) return copy(savedGroups = rest)
+        val n = rest[minOf(i, rest.size - 1)]
+        return copy(savedGroups = rest, groupId = n.id, groupCode = n.code)
+    }
+
+    fun cycle(delta: Int): AppSettings {
+        val list = groups
+        val i = list.indexOfFirst { it.id == groupId }
+        if (list.size < 2 || i < 0) return this
+        val n = list[Math.floorMod(i + delta, list.size)]
+        return copy(groupId = n.id, groupCode = n.code)
+    }
 }
 
 data class LoadResult(val data: ScheduleData?, val offline: Boolean)
@@ -47,6 +82,7 @@ object Repository {
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putInt("groupId", new.groupId ?: 0)
             .putString("groupCode", new.groupCode)
+            .putString("groups", new.groups.joinToString(";") { "${it.id}:${it.code}" })
             .putInt("pg", new.subgroup)
             .putBoolean("mil", new.showMilitary)
             .putString("theme", new.theme)
@@ -62,8 +98,12 @@ object Repository {
         if (groupId == null && p.contains("pg")) {
             groupId = legacyGroup.id; groupCode = legacyGroup.code
         }
+        val saved = p.getString("groups", null).orEmpty().split(";").mapNotNull { part ->
+            val id = part.substringBefore(":").toIntOrNull() ?: return@mapNotNull null
+            GroupRef(id, part.substringAfter(":"))
+        }
         return AppSettings(
-            groupId = groupId, groupCode = groupCode,
+            groupId = groupId, groupCode = groupCode, savedGroups = saved,
             subgroup = p.getInt("pg", 1), showMilitary = p.getBoolean("mil", false),
             theme = p.getString("theme", null) ?: ThemeId.SAND.key,
             appearance = p.getString("appearance", null) ?: Appearance.SYSTEM.key,
