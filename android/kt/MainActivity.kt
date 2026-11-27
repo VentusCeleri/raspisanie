@@ -98,14 +98,22 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun loadGroups() = viewModelScope.launch {
         val list = Repository.loadGroups(ctx)
         if (list.isNotEmpty()) groups.value = list
+        // Group chosen by id only (screenshot launch extras): fill in its code from the list.
+        val s = settings.value
+        if (s.groupId != null && s.groupCode == null) {
+            list.firstOrNull { it.id == s.groupId }?.let { g -> Repository.update(ctx) { it.copy(groupCode = g.code) } }
+        }
     }
 }
 
 private enum class Screen { MAIN, SETTINGS, GROUPS }
 
+var openSettingsOnStart = false
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        applyLaunchExtras()
         WidgetUpdates.schedule(this)
         setContent {
             val vm: AppViewModel = viewModel()
@@ -124,6 +132,19 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** Used by the screenshot workflow: `am start --ei groupId 9209 --es theme ocean --es appearance dark --ez openSettings true`. */
+    private fun applyLaunchExtras() {
+        val e = intent?.extras ?: return
+        Repository.update(this) { s ->
+            var n = s
+            if (e.containsKey("groupId")) n = n.copy(groupId = e.getInt("groupId"), groupCode = null)
+            e.getString("theme")?.let { n = n.copy(theme = it) }
+            e.getString("appearance")?.let { n = n.copy(appearance = it) }
+            n
+        }
+        openSettingsOnStart = e.getBoolean("openSettings", false)
+    }
+
     override fun onResume() {
         super.onResume()
         WidgetUpdates.updateNow(this)
@@ -132,7 +153,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun App(vm: AppViewModel, s: AppSettings, c: Swatch) {
-    var screen by remember { mutableStateOf(Screen.MAIN) }
+    var screen by remember { mutableStateOf(if (openSettingsOnStart) Screen.SETTINGS else Screen.MAIN) }
     val needsGroup = s.groupId == null
     Box(Modifier.fillMaxSize().background(c.bg)) {
         when {
@@ -423,6 +444,9 @@ private fun SettingsScreen(vm: AppViewModel, s: AppSettings, c: Swatch, onGroups
                     data?.meta?.updated?.takeIf { it.isNotEmpty() }?.let { Text("Данные из ЛК: $it", color = c.ink) }
                     Text("Сайт расписания", color = c.accent, modifier = Modifier.clickable {
                         ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Repository.SITE)))
+                    })
+                    Text("Политика конфиденциальности", color = c.accent, modifier = Modifier.clickable {
+                        ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Repository.SITE + "privacy.html")))
                     })
                     Text("Версия ${BuildConfigCompat.versionName(ctx)}", color = c.muted, fontSize = 13.sp)
                 }
