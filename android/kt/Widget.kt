@@ -55,7 +55,8 @@ class PairsWidget : GlanceAppWidget() {
         private val LARGE = DpSize(250.dp, 250.dp)
     }
 
-    override val sizeMode = SizeMode.Responsive(setOf(SMALL, MEDIUM, LARGE))
+    // Exact: layout is computed from the real widget size, so any shape is filled (see WidgetContent).
+    override val sizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val s = Repository.settings(context).value
@@ -82,14 +83,20 @@ private fun WidgetContent(s: AppSettings, hasData: Boolean, lessons: List<TimedL
     val size = LocalSize.current
     val now = Instant.now()
     val st = NowState(lessons, now)
-    Column(GlanceModifier.fillMaxSize().background(c.bg).cornerRadius(22.dp).padding(14.dp)
+    val w = size.width.value
+    val h = size.height.value
+    val pad = if (w < 110 || h < 80) 8 else 14
+    Column(GlanceModifier.fillMaxSize().background(c.bg).cornerRadius(22.dp).padding(pad.dp)
         .clickable(actionStartActivity<MainActivity>())) {
+        val inner = h - 2 * pad
         when {
-            s.groupId == null -> T("Открой «Пары» и выбери группу", c.ink, 13)
-            !hasData -> T("Открой приложение «Пары» с интернетом", c.ink, 13)
-            size.width >= 250.dp && size.height >= 250.dp -> Large(st, now, c)
-            size.width >= 250.dp -> Medium(st, now, c)
-            else -> Small(st, now, c)
+            s.groupId == null -> T("Открой «Пары» и выбери группу", c.ink, 12, lines = 3)
+            !hasData -> T("Открой «Пары» с интернетом", c.ink, 12, lines = 3)
+            w < 110 || h < 80 -> Micro(st, c)                                   // 1×1 and tiny
+            h < 110 -> Strip(st, lessons, now, c, wide = w >= 280)             // one row high
+            w < 200 -> Tall(st, lessons, now, c, inner)                         // narrow column
+            h < 200 -> TwoColumns(st, lessons, now, c, inner)                   // wide, not tall
+            else -> Stacked(st, lessons, now, c, inner, big = w >= 300)         // square / large
         }
     }
 }
@@ -107,80 +114,137 @@ private fun headline(st: NowState, f: TimedLesson): String = when {
     else -> "${Schedule.relativeDay(f.day).uppercase()} · ${f.lesson.t}"
 }
 
-@Composable
-private fun Focus(st: NowState, c: Swatch, big: Boolean) {
-    val f = st.focus
-    if (f == null) {
-        T("ПАР БОЛЬШЕ НЕТ", c.accent, 10, FontWeight.Bold)
-        T("Каникулы 🎉", c.ink, 18, FontWeight.Bold)
-        return
-    }
-    val l = f.lesson
-    T(headline(st, f), if (l.isExam) c.exam else c.accent, 10, FontWeight.Bold)
-    T(l.r.ifEmpty { "—" }, if (l.isExam) c.exam else c.ink, if (big) 38 else 32, FontWeight.Bold)
-    T(Schedule.shortName(l.s), c.ink, if (big) 15 else 13, FontWeight.Medium, lines = 2)
-    T(Schedule.typeLabel(l.ty) + (if (l.n > 1) " ×${l.n}" else "") +
-          (if (l.te.isNotEmpty()) " · " + l.te.substringBefore(",") else ""), c.muted, 11)
-    if (l.note.isNotEmpty()) T(l.note, c.exam, 10, FontWeight.Medium)
+private fun accentOf(l: Lesson, c: Swatch) = if (l.isExam) c.exam else c.accent
+private fun inkOf(l: Lesson, c: Swatch) = if (l.isExam) c.exam else c.ink
+
+/** Rows after the focus class: rest of its day, then following days with a day header, as many as fit. */
+private sealed interface UpRow {
+    data class Day(val label: String) : UpRow
+    data class Item(val l: TimedLesson) : UpRow
 }
 
-@Composable
-private fun RestList(items: List<TimedLesson>, max: Int, c: Swatch) {
-    items.take(max).forEach { l ->
-        Row(GlanceModifier.fillMaxWidth().padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-            T(l.lesson.t, c.muted, 12, FontWeight.Bold, modifier = GlanceModifier.width(44.dp))
-            T(Schedule.shortName(l.lesson.s), c.ink, 12, FontWeight.Medium, modifier = GlanceModifier.defaultWeight())
-            T(l.lesson.r, if (l.lesson.isExam) c.exam else c.ink, 13, FontWeight.Bold)
+private fun upcoming(all: List<TimedLesson>, st: NowState, now: Instant, max: Int): List<UpRow> {
+    val f = st.focus ?: return emptyList()
+    if (max <= 0) return emptyList()
+    val rows = mutableListOf<UpRow>()
+    var day: java.time.LocalDate? = null
+    for (l in all) {
+        if (l.start <= f.start || l.id == f.id || l.end <= now) continue
+        if (l.day != day) {
+            val label = if (l.day == f.day) (if (f.day == Schedule.today()) "ДАЛЬШЕ СЕГОДНЯ" else "В ЭТОТ ДЕНЬ")
+                        else Schedule.relativeDay(l.day).uppercase()
+            if (rows.size + 2 > max) break          // a header needs room for at least one class
+            rows += UpRow.Day(label); day = l.day
         }
+        rows += UpRow.Item(l)
+        if (rows.size >= max) break
     }
+    return rows
 }
 
-@Composable
-private fun ColumnScope.Small(st: NowState, now: Instant, c: Swatch) {
-    Focus(st, c, big = false)
-    Spacer(GlanceModifier.defaultWeight())
-    st.rest.firstOrNull()?.let { n ->
-        T("потом ${n.lesson.t} · ${n.lesson.r}" + if (st.rest.size > 1) "  +${st.rest.size - 1}" else "", c.muted, 11)
-    }
-}
+private const val ROW_DP = 21f
 
 @Composable
-private fun ColumnScope.Medium(st: NowState, now: Instant, c: Swatch) {
-    Row(GlanceModifier.fillMaxSize()) {
-        Column(GlanceModifier.width(130.dp)) { Focus(st, c, big = false) }
-        Spacer(GlanceModifier.width(12.dp))
-        Column(GlanceModifier.defaultWeight()) {
-            val f = st.focus
-            when {
-                st.rest.isNotEmpty() -> {
-                    T(if (f?.day == Schedule.today()) "ДАЛЬШЕ СЕГОДНЯ" else "В ЭТОТ ДЕНЬ", c.muted, 10, FontWeight.Bold)
-                    Spacer(GlanceModifier.height(4.dp))
-                    RestList(st.rest, 4, c)
-                }
-                st.followingDay != null -> {
-                    T(Schedule.relativeDay(st.followingDay).uppercase(), c.muted, 10, FontWeight.Bold)
-                    Spacer(GlanceModifier.height(4.dp))
-                    RestList(st.followingLessons, 4, c)
-                }
-                f != null -> T("больше пар нет", c.muted, 12)
+private fun UpList(rows: List<UpRow>, c: Swatch, compact: Boolean = false) {
+    rows.forEachIndexed { i, r ->
+        when (r) {
+            is UpRow.Day -> T(r.label, c.muted, 10, FontWeight.Bold,
+                              modifier = GlanceModifier.padding(top = if (i == 0) 0.dp else 4.dp, bottom = 1.dp))
+            is UpRow.Item -> Row(GlanceModifier.fillMaxWidth().padding(vertical = 2.dp),
+                                 verticalAlignment = Alignment.CenterVertically) {
+                T(r.l.lesson.t, c.muted, 12, FontWeight.Bold, modifier = GlanceModifier.width(if (compact) 38.dp else 44.dp))
+                T(Schedule.shortName(r.l.lesson.s), c.ink, 12, FontWeight.Medium, modifier = GlanceModifier.defaultWeight())
+                T(r.l.lesson.r, inkOf(r.l.lesson, c), 13, FontWeight.Bold)
             }
         }
     }
 }
 
 @Composable
-private fun ColumnScope.Large(st: NowState, now: Instant, c: Swatch) {
-    Focus(st, c, big = true)
-    Spacer(GlanceModifier.height(10.dp))
-    val f = st.focus
-    if (f != null) {
-        T(if (f.day == Schedule.today()) "ДАЛЬШЕ СЕГОДНЯ" else "В ЭТОТ ДЕНЬ", c.muted, 10, FontWeight.Bold)
-        if (st.rest.isEmpty()) T("больше пар нет", c.muted, 12) else RestList(st.rest, 5, c)
+private fun NoMore(c: Swatch) {
+    T("ПАР БОЛЬШЕ НЕТ", c.accent, 10, FontWeight.Bold)
+    T("Каникулы 🎉", c.ink, 16, FontWeight.Bold)
+}
+
+/** Focus block; `roomSize` scales with the widget. Returns nothing — height ≈ 60 + roomSize. */
+@Composable
+private fun Focus(st: NowState, c: Swatch, roomSize: Int, details: Boolean) {
+    val f = st.focus ?: return NoMore(c)
+    val l = f.lesson
+    T(headline(st, f), accentOf(l, c), 10, FontWeight.Bold)
+    T(l.r.ifEmpty { "—" }, inkOf(l, c), roomSize, FontWeight.Bold)
+    T(Schedule.shortName(l.s), c.ink, if (roomSize >= 36) 15 else 13, FontWeight.Medium, lines = if (details) 2 else 1)
+    if (details) {
+        T(Schedule.typeLabel(l.ty) + (if (l.n > 1) " ×${l.n}" else "") +
+              (if (l.te.isNotEmpty()) " · " + l.te.substringBefore(",") else ""), c.muted, 11)
+        if (l.note.isNotEmpty()) T(l.note, c.exam, 10, FontWeight.Medium)
     }
-    st.followingDay?.let { d ->
+}
+
+@Composable
+private fun ColumnScope.Micro(st: NowState, c: Swatch) {
+    val f = st.focus
+    Column(GlanceModifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically,
+           horizontalAlignment = Alignment.CenterHorizontally) {
+        if (f == null) { T("—", c.ink, 20, FontWeight.Bold); return@Column }
+        T(if (st.current != null) "до ${f.endText}" else f.lesson.t, accentOf(f.lesson, c), 11, FontWeight.Bold)
+        T(f.lesson.r.ifEmpty { "—" }, inkOf(f.lesson, c), 22, FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun ColumnScope.Strip(st: NowState, all: List<TimedLesson>, now: Instant, c: Swatch, wide: Boolean) {
+    val f = st.focus
+    Row(GlanceModifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+        if (f == null) { NoMore(c); return@Row }
+        Column(GlanceModifier.width(if (wide) 110.dp else 90.dp)) {
+            T(headline(st, f).substringAfter("· ").let { if (st.current != null) "до ${f.endText}" else it },
+              accentOf(f.lesson, c), 11, FontWeight.Bold)
+            T(f.lesson.r.ifEmpty { "—" }, inkOf(f.lesson, c), 26, FontWeight.Bold)
+        }
+        Column(GlanceModifier.defaultWeight()) {
+            T(Schedule.shortName(f.lesson.s), c.ink, 13, FontWeight.Medium)
+            T(Schedule.typeLabel(f.lesson.ty) + if (f.lesson.te.isNotEmpty()) " · " + f.lesson.te.substringBefore(",") else "",
+              c.muted, 11)
+            val next = (upcoming(all, st, now, 2).firstOrNull { it is UpRow.Item } as? UpRow.Item)?.l
+            if (next != null && wide) T("потом ${next.lesson.t} · ${next.lesson.r}", c.muted, 11, FontWeight.Medium)
+        }
+    }
+}
+
+@Composable
+private fun ColumnScope.Tall(st: NowState, all: List<TimedLesson>, now: Instant, c: Swatch, inner: Float) {
+    val details = inner >= 230
+    Focus(st, c, roomSize = 30, details = details)
+    val used = if (details) 108f else 80f
+    val capacity = ((inner - used - 8) / ROW_DP).toInt()
+    if (capacity > 0) {
+        Spacer(GlanceModifier.height(8.dp))
+        UpList(upcoming(all, st, now, capacity), c, compact = true)
+    }
+}
+
+@Composable
+private fun ColumnScope.TwoColumns(st: NowState, all: List<TimedLesson>, now: Instant, c: Swatch, inner: Float) {
+    Row(GlanceModifier.fillMaxSize()) {
+        Column(GlanceModifier.width(130.dp)) { Focus(st, c, roomSize = 32, details = inner >= 120) }
+        Spacer(GlanceModifier.width(12.dp))
+        Column(GlanceModifier.defaultWeight()) {
+            val rows = upcoming(all, st, now, (inner / ROW_DP).toInt())
+            if (rows.isEmpty() && st.focus != null) T("больше пар нет", c.muted, 12) else UpList(rows, c)
+        }
+    }
+}
+
+@Composable
+private fun ColumnScope.Stacked(st: NowState, all: List<TimedLesson>, now: Instant, c: Swatch, inner: Float, big: Boolean) {
+    Focus(st, c, roomSize = if (big) 40 else 34, details = true)
+    val used = if (big) 126f else 118f
+    val capacity = ((inner - used - 10) / ROW_DP).toInt()
+    if (capacity > 0) {
         Spacer(GlanceModifier.height(10.dp))
-        T(Schedule.dayLabel(d).uppercase(), c.muted, 10, FontWeight.Bold)
-        RestList(st.followingLessons, 4, c)
+        val rows = upcoming(all, st, now, capacity)
+        if (rows.isEmpty() && st.focus != null) T("больше пар нет", c.muted, 12) else UpList(rows, c)
     }
 }
 
