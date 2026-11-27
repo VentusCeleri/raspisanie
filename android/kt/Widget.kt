@@ -92,6 +92,7 @@ private fun WidgetContent(s: AppSettings, hasData: Boolean, lessons: List<TimedL
         when {
             s.groupId == null -> T("Открой «Пары» и выбери группу", c.ink, 12, lines = 3)
             !hasData -> T("Открой «Пары» с интернетом", c.ink, 12, lines = 3)
+            w < 110 && h >= 140 -> Pillar(st, lessons, now, c, inner)          // narrow and tall
             w < 110 || h < 80 -> Micro(st, c)                                   // 1×1 and tiny
             h < 110 -> Strip(st, lessons, now, c, wide = w >= 280)             // one row high
             w < 200 -> Tall(st, lessons, now, c, inner)                         // narrow column
@@ -143,6 +144,9 @@ private fun upcoming(all: List<TimedLesson>, st: NowState, now: Instant, max: In
 }
 
 private const val ROW_DP = 21f
+/** Some launchers (Samsung One UI) report the widget's minimum height, not the real one. We ask for more rows
+ *  than the reported height fits; anything that really doesn't fit is clipped by the widget frame. */
+private fun capacity(space: Float): Int = minOf(14, ((space * 1.6f) / ROW_DP).toInt() + 2)
 
 @Composable
 private fun UpList(rows: List<UpRow>, c: Swatch, compact: Boolean = false) {
@@ -178,6 +182,27 @@ private fun Focus(st: NowState, c: Swatch, roomSize: Int, details: Boolean) {
         T(Schedule.typeLabel(l.ty) + (if (l.n > 1) " ×${l.n}" else "") +
               (if (l.te.isNotEmpty()) " · " + l.te.substringBefore(",") else ""), c.muted, 11)
         if (l.note.isNotEmpty()) T(l.note, c.exam, 10, FontWeight.Medium)
+    }
+}
+
+/** Narrow tall column: focus room on top, then "time / room" pairs for the next classes. */
+@Composable
+private fun ColumnScope.Pillar(st: NowState, all: List<TimedLesson>, now: Instant, c: Swatch, inner: Float) {
+    val f = st.focus
+    if (f == null) { T("—", c.ink, 20, FontWeight.Bold); return }
+    T(if (st.current != null) "до ${f.endText}" else f.lesson.t, accentOf(f.lesson, c), 11, FontWeight.Bold)
+    T(f.lesson.r.ifEmpty { "—" }, inkOf(f.lesson, c), 22, FontWeight.Bold)
+    T(Schedule.shortName(f.lesson.s), c.ink, 11, FontWeight.Medium, lines = 2)
+    Spacer(GlanceModifier.height(8.dp))
+    upcoming(all, st, now, capacity((inner - 80) / 1.6f)).forEach { r ->
+        when (r) {
+            is UpRow.Day -> T(r.label.substringBefore(",").take(6), c.muted, 9, FontWeight.Bold,
+                              modifier = GlanceModifier.padding(top = 4.dp))
+            is UpRow.Item -> Column(GlanceModifier.padding(vertical = 2.dp)) {
+                T(r.l.lesson.t, c.muted, 10, FontWeight.Bold)
+                T(r.l.lesson.r.ifEmpty { "—" }, inkOf(r.l.lesson, c), 14, FontWeight.Bold)
+            }
+        }
     }
 }
 
@@ -217,11 +242,8 @@ private fun ColumnScope.Tall(st: NowState, all: List<TimedLesson>, now: Instant,
     val details = inner >= 230
     Focus(st, c, roomSize = 30, details = details)
     val used = if (details) 108f else 80f
-    val capacity = ((inner - used - 8) / ROW_DP).toInt()
-    if (capacity > 0) {
-        Spacer(GlanceModifier.height(8.dp))
-        UpList(upcoming(all, st, now, capacity), c, compact = true)
-    }
+    Spacer(GlanceModifier.height(8.dp))
+    UpList(upcoming(all, st, now, capacity(inner - used - 8)), c, compact = true)
 }
 
 @Composable
@@ -230,7 +252,7 @@ private fun ColumnScope.TwoColumns(st: NowState, all: List<TimedLesson>, now: In
         Column(GlanceModifier.width(130.dp)) { Focus(st, c, roomSize = 32, details = inner >= 120) }
         Spacer(GlanceModifier.width(12.dp))
         Column(GlanceModifier.defaultWeight()) {
-            val rows = upcoming(all, st, now, (inner / ROW_DP).toInt())
+            val rows = upcoming(all, st, now, capacity(inner))
             if (rows.isEmpty() && st.focus != null) T("больше пар нет", c.muted, 12) else UpList(rows, c)
         }
     }
@@ -240,12 +262,9 @@ private fun ColumnScope.TwoColumns(st: NowState, all: List<TimedLesson>, now: In
 private fun ColumnScope.Stacked(st: NowState, all: List<TimedLesson>, now: Instant, c: Swatch, inner: Float, big: Boolean) {
     Focus(st, c, roomSize = if (big) 40 else 34, details = true)
     val used = if (big) 126f else 118f
-    val capacity = ((inner - used - 10) / ROW_DP).toInt()
-    if (capacity > 0) {
-        Spacer(GlanceModifier.height(10.dp))
-        val rows = upcoming(all, st, now, capacity)
-        if (rows.isEmpty() && st.focus != null) T("больше пар нет", c.muted, 12) else UpList(rows, c)
-    }
+    Spacer(GlanceModifier.height(10.dp))
+    val rows = upcoming(all, st, now, capacity(inner - used - 10))
+    if (rows.isEmpty() && st.focus != null) T("больше пар нет", c.muted, 12) else UpList(rows, c)
 }
 
 // ---------------------------------------------------------------- updates
