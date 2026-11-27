@@ -58,6 +58,9 @@ data class AppSettings(
 
 data class LoadResult(val data: ScheduleData?, val offline: Boolean)
 
+/** Newer build published on the site (pary-apk.json). */
+data class UpdateInfo(val versionName: String, val versionCode: Long)
+
 /** Settings (SharedPreferences) and schedule files (site + on-disk cache). Shared by app, widget and worker. */
 object Repository {
     const val SITE = "https://ventusceleri.github.io/raspisanie/"
@@ -127,6 +130,31 @@ object Repository {
         } catch (e: Exception) {
             LoadResult(cached(ctx, group), offline = true)
         }
+    }
+
+    const val RUSTORE_PACKAGE = "ru.vk.store"
+    const val RUSTORE_PAGE = "https://www.rustore.ru/catalog/app/ru.ventusceleri.pary"
+    const val APK_URL = SITE + "pary.apk"
+
+    fun installedVersionCode(ctx: Context): Long = runCatching {
+        val pi = ctx.packageManager.getPackageInfo(ctx.packageName, 0)
+        if (android.os.Build.VERSION.SDK_INT >= 28) pi.longVersionCode else @Suppress("DEPRECATION") pi.versionCode.toLong()
+    }.getOrDefault(0L)
+
+    /** Store that installed the app (null — side-loaded APK). */
+    fun installer(ctx: Context): String? = runCatching {
+        if (android.os.Build.VERSION.SDK_INT >= 30) ctx.packageManager.getInstallSourceInfo(ctx.packageName).installingPackageName
+        else @Suppress("DEPRECATION") ctx.packageManager.getInstallerPackageName(ctx.packageName)
+    }.getOrNull()
+
+    /** Checks pary-apk.json; returns info only if the site has a newer build than the installed one. */
+    suspend fun checkUpdate(ctx: Context): UpdateInfo? = withContext(Dispatchers.IO) {
+        runCatching {
+            val o = org.json.JSONObject(get("pary-apk.json"))
+            val name = o.optString("version")
+            val code = if (o.has("code")) o.optLong("code") else name.substringAfter(".").toLongOrNull() ?: 0L
+            if (code > installedVersionCode(ctx)) UpdateInfo(name, code) else null
+        }.getOrNull()
     }
 
     fun cachedGroups(ctx: Context): List<GroupInfo> =
