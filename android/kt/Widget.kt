@@ -27,6 +27,7 @@ import androidx.glance.layout.Column
 import androidx.glance.layout.ColumnScope
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
+import androidx.glance.layout.fillMaxHeight
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
@@ -246,14 +247,49 @@ private fun ColumnScope.Tall(st: NowState, all: List<TimedLesson>, now: Instant,
     UpList(upcoming(all, st, now, capacity(inner - used - 8)), c, compact = true)
 }
 
+/** Rows for one day only: the rest of the focus day, or the next study day. */
+private fun oneDay(st: NowState): Pair<String, List<TimedLesson>>? {
+    val f = st.focus ?: return null
+    if (st.rest.isNotEmpty())
+        return (if (f.day == Schedule.today()) "ДАЛЬШЕ СЕГОДНЯ" else "В ЭТОТ ДЕНЬ") to st.rest
+    val d = st.followingDay ?: return null
+    return Schedule.relativeDay(d).uppercase() to st.followingLessons
+}
+
+/** 4×2-like: focus on the left stretched to full height, one day on the right with rows spread over the height. */
 @Composable
 private fun ColumnScope.TwoColumns(st: NowState, all: List<TimedLesson>, now: Instant, c: Swatch, inner: Float) {
     Row(GlanceModifier.fillMaxSize()) {
-        Column(GlanceModifier.width(130.dp)) { Focus(st, c, roomSize = 32, details = inner >= 120) }
+        Column(GlanceModifier.width(140.dp).fillMaxHeight()) {
+            val f = st.focus
+            if (f == null) NoMore(c) else {
+                val l = f.lesson
+                T(headline(st, f), accentOf(l, c), 10, FontWeight.Bold)
+                T(l.r.ifEmpty { "—" }, inkOf(l, c), 34, FontWeight.Bold)
+                Spacer(GlanceModifier.defaultWeight())
+                T(Schedule.shortName(l.s), c.ink, 13, FontWeight.Medium, lines = 2)
+                T(Schedule.typeLabel(l.ty) + (if (l.n > 1) " ×${l.n}" else "") +
+                      (if (l.te.isNotEmpty()) " · " + l.te.substringBefore(",") else ""), c.muted, 11)
+                if (l.note.isNotEmpty()) T(l.note, c.exam, 10, FontWeight.Medium)
+            }
+        }
         Spacer(GlanceModifier.width(12.dp))
-        Column(GlanceModifier.defaultWeight()) {
-            val rows = upcoming(all, st, now, capacity(inner))
-            if (rows.isEmpty() && st.focus != null) T("больше пар нет", c.muted, 12) else UpList(rows, c)
+        Column(GlanceModifier.defaultWeight().fillMaxHeight()) {
+            val day = oneDay(st)
+            if (day == null) {
+                if (st.focus != null) T("больше пар нет", c.muted, 12)
+            } else {
+                T(day.first, c.muted, 10, FontWeight.Bold)
+                day.second.take(6).forEach { l ->
+                    Row(GlanceModifier.fillMaxWidth().defaultWeight(), verticalAlignment = Alignment.CenterVertically) {
+                        T(l.lesson.t, c.muted, 12, FontWeight.Bold, modifier = GlanceModifier.width(44.dp))
+                        T(Schedule.shortName(l.lesson.s), c.ink, 12, FontWeight.Medium, modifier = GlanceModifier.defaultWeight())
+                        T(l.lesson.r, inkOf(l.lesson, c), 13, FontWeight.Bold)
+                    }
+                }
+                // Few classes: keep them at the top instead of stretching 1–2 rows over the whole height.
+                if (day.second.size < 4) repeat(4 - day.second.size) { Spacer(GlanceModifier.defaultWeight()) }
+            }
         }
     }
 }
