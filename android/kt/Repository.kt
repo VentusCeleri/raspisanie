@@ -26,6 +26,9 @@ data class LoadResult(val data: ScheduleData?, val offline: Boolean)
 /** Settings (SharedPreferences) and schedule files (site + on-disk cache). Shared by app, widget and worker. */
 object Repository {
     const val SITE = "https://ventusceleri.github.io/raspisanie/"
+    const val SHARE_URL = SITE + "app.html"
+    const val SHARE_MESSAGE = "Пары РГУ — расписание Губкина в телефоне"
+    const val AUTHOR_CHANNEL = "https://t.me/neuro_s_nulya"
     val legacyGroup = GroupInfo(9209, "РН-23-04", "")
 
     private const val PREFS = "pary"
