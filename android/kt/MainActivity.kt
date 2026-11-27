@@ -125,7 +125,10 @@ class MainActivity : ComponentActivity() {
                           else SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
                 enableEdgeToEdge(bar, bar)
             }
-            LaunchedEffect(Unit) { vm.refresh() }
+            LaunchedEffect(Unit) {
+                vm.refresh()
+                if (settings.groupId != null && settings.groupCode == null) vm.loadGroups()
+            }
             MaterialTheme(colorScheme = if (dark) darkColorScheme(primary = c.accent) else lightColorScheme(primary = c.accent)) {
                 App(vm, settings, c)
             }
