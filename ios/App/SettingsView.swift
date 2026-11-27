@@ -13,11 +13,30 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Расписание") {
-                    Button { showGroupPicker = true } label: {
-                        LabeledContent("Группа", value: model.settings.groupCode ?? "не выбрана")
-                            .foregroundStyle(c.ink)
+                Section {
+                    ForEach(model.settings.groups) { g in
+                        Button { model.activate(g) } label: {
+                            HStack {
+                                Text(g.code).foregroundStyle(c.ink)
+                                Spacer()
+                                if g.id == model.settings.groupId { Image(systemName: "checkmark").foregroundStyle(c.accent) }
+                            }
+                        }
                     }
+                    .onDelete { idx in
+                        let ids = idx.map { model.settings.groups[$0].id }
+                        ids.forEach { model.remove($0) }
+                    }
+                    .deleteDisabled(model.settings.groups.count < 2)
+                    Button { showGroupPicker = true } label: { Label("Добавить группу", systemImage: "plus") }
+                } header: {
+                    Text("Мои группы")
+                } footer: {
+                    Text("Переключать группы можно свайпом по названию вверху главного экрана. Удалить — свайп по строке влево.")
+                }
+                .listRowBackground(c.card)
+
+                Section("Расписание") {
                     Picker("Подгруппа", selection: $model.settings.subgroup) {
                         Text("1 подгруппа").tag(1)
                         Text("2 подгруппа").tag(2)

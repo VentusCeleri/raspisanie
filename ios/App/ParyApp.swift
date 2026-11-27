@@ -50,9 +50,12 @@ final class AppModel: ObservableObject {
     var palette: Palette { settings.themeID.palette }
 
     func select(_ group: GroupInfo) {
-        settings.groupId = group.id
-        settings.groupCode = group.code
+        settings.activate(GroupRef(id: group.id, code: group.code))
     }
+
+    func activate(_ g: GroupRef) { settings.activate(g) }
+    func remove(_ id: Int) { settings.remove(id) }
+    func cycle(_ delta: Int) { settings.cycle(delta) }
 
     func refresh() async {
         guard let group = settings.groupId, !loading else { return }
