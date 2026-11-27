@@ -47,7 +47,12 @@ struct ContentView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     Button { selectedDay = Schedule.startOfDay(Date()) } label: { Text("Сегодня") }
                 }
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    ShareLink(item: ScheduleSource.shareURL, subject: Text("Пары РГУ"),
+                              message: Text(ScheduleSource.shareMessage)) {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                    .accessibilityLabel("Поделиться приложением")
                     Button { showSettings = true } label: { Image(systemName: "paintpalette") }
                         .accessibilityLabel("Настройки и оформление")
                 }

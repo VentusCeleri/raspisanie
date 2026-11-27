@@ -10,6 +10,10 @@ struct LoadResult {
 /// The app and the widget each keep their own copies.
 enum ScheduleSource {
     static let site = URL(string: "https://ventusceleri.github.io/raspisanie/")!
+    /// Landing page that picks App Store / APK by platform — what we share.
+    static let shareURL = URL(string: "https://ventusceleri.github.io/raspisanie/app.html")!
+    static let shareMessage = "Пары РГУ — расписание Губкина в телефоне"
+    static let authorChannel = URL(string: "https://t.me/neuro_s_nulya")!
 
     private static var dir: URL {
         let fm = FileManager.default

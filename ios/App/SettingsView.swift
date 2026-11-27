@@ -52,6 +52,17 @@ struct SettingsView: View {
                 }
                 .listRowBackground(c.card)
 
+                Section("Автор") {
+                    ShareLink(item: ScheduleSource.shareURL, subject: Text("Пары РГУ"),
+                              message: Text(ScheduleSource.shareMessage)) {
+                        Label("Поделиться приложением", systemImage: "square.and.arrow.up")
+                    }
+                    Link(destination: ScheduleSource.authorChannel) {
+                        Label("Канал автора — Нейросети с нуля", systemImage: "paperplane")
+                    }
+                }
+                .listRowBackground(c.card)
+
                 Section("О приложении") {
                     if let updated = model.data?.meta.updated, !updated.isEmpty {
                         LabeledContent("Данные из ЛК", value: updated)

@@ -35,10 +35,10 @@ jobs:
         env: { GH_TOKEN: "${{ github.token }}" }
         run: |
           cp android/build/outputs/apk/release/*-release.apk pary.apk
-          echo "{\"version\": \"1.${{ github.run_number }}\", \"built\": \"$(date -u +%Y-%m-%dT%H:%MZ)\"}" > pary-apk.json
+          echo "{\"version\": \"2.${{ github.run_number }}\", \"built\": \"$(date -u +%Y-%m-%dT%H:%MZ)\"}" > pary-apk.json
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add pary.apk pary-apk.json
-          git commit -m "APK 1.${{ github.run_number }}" || exit 0
+          git commit -m "APK 2.${{ github.run_number }}" || exit 0
           git pull --rebase && git push
           gh api -X POST "repos/${{ github.repository }}/pages/builds" || true
