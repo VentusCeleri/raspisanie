@@ -62,6 +62,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val offline = MutableStateFlow(false)
     val loading = MutableStateFlow(false)
     val groups = MutableStateFlow(Repository.cachedGroups(app))
+    val update = MutableStateFlow<UpdateInfo?>(null)
+
+    fun checkUpdate() = viewModelScope.launch { update.value = Repository.checkUpdate(ctx) }
+
+    /** RuStore install → its page (it updates the app itself); side-loaded APK → download the new APK. */
+    fun openUpdate(activity: android.content.Context) {
+        val url = if (Repository.installer(ctx) == Repository.RUSTORE_PACKAGE) Repository.RUSTORE_PAGE else Repository.APK_URL
+        activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+    }
     private var lastFetch = 0L
 
     fun change(f: (AppSettings) -> AppSettings) {
@@ -134,6 +143,7 @@ class MainActivity : ComponentActivity() {
             }
             LaunchedEffect(Unit) {
                 vm.refresh()
+                vm.checkUpdate()
                 if (settings.groupId != null && settings.groupCode == null) vm.loadGroups()
             }
             MaterialTheme(colorScheme = if (dark) darkColorScheme(primary = c.accent) else lightColorScheme(primary = c.accent)) {
@@ -187,6 +197,8 @@ private fun MainScreen(vm: AppViewModel, s: AppSettings, c: Swatch, openSettings
     val data by vm.data.collectAsStateWithLifecycle()
     val loading by vm.loading.collectAsStateWithLifecycle()
     val offline by vm.offline.collectAsStateWithLifecycle()
+    val update by vm.update.collectAsStateWithLifecycle()
+    val ctx = androidx.compose.ui.platform.LocalContext.current
     var now by remember { mutableStateOf(Instant.now()) }
     LaunchedEffect(Unit) { while (true) { delay(30_000); now = Instant.now() } }
     var selected by remember { mutableStateOf(Schedule.today()) }
@@ -213,6 +225,7 @@ private fun MainScreen(vm: AppViewModel, s: AppSettings, c: Swatch, openSettings
         PullToRefreshBox(isRefreshing = loading, onRefresh = { vm.refresh() }, modifier = Modifier.fillMaxSize()) {
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 32.dp),
                        verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                update?.let { u -> item { UpdateBanner(u, c) { vm.openUpdate(ctx) } } }
                 if (data == null) {
                     item { EmptyState(loading, c) { vm.refresh() } }
                 } else {
@@ -275,6 +288,21 @@ private fun GroupTitle(vm: AppViewModel, s: AppSettings, c: Swatch, onAdd: () ->
             }
             HorizontalDivider(color = c.line)
             DropdownMenuItem(text = { Text("+ Добавить группу", color = c.accent) }, onClick = { menu = false; onAdd() })
+        }
+    }
+}
+
+@Composable
+private fun UpdateBanner(u: UpdateInfo, c: Swatch, onUpdate: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(c.accent.copy(alpha = 0.14f))
+        .border(1.dp, c.accent, RoundedCornerShape(16.dp)).padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text("Доступна новая версия ${u.versionName}", color = c.ink, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+            Text("Исправления и новые функции", color = c.muted, fontSize = 13.sp)
+        }
+        Button(onClick = onUpdate, colors = ButtonDefaults.buttonColors(containerColor = c.accent, contentColor = c.bg)) {
+            Text("Обновить", fontWeight = FontWeight.SemiBold)
         }
     }
 }
