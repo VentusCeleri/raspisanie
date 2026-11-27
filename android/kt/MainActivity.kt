@@ -29,6 +29,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
@@ -192,6 +193,11 @@ private fun MainScreen(vm: AppViewModel, s: AppSettings, c: Swatch, openSettings
             Pill("Сегодня", c) { selected = Schedule.today() }
             Text(s.groupCode ?: "Пары", Modifier.weight(1f), color = c.ink, fontWeight = FontWeight.SemiBold,
                  fontSize = 18.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            val ctx = androidx.compose.ui.platform.LocalContext.current
+            IconButton(onClick = { shareApp(ctx) }, Modifier.clip(CircleShape).background(c.card)) {
+                Icon(Icons.Default.Share, contentDescription = "Поделиться приложением", tint = c.accent)
+            }
+            Spacer(Modifier.width(8.dp))
             IconButton(onClick = openSettings, Modifier.clip(CircleShape).background(c.card)) {
                 Icon(Icons.Default.Settings, contentDescription = "Настройки и оформление", tint = c.accent)
             }
@@ -441,6 +447,18 @@ private fun SettingsScreen(vm: AppViewModel, s: AppSettings, c: Swatch, onGroups
                          color = c.ink, fontSize = 14.sp)
                 }
             }
+            item { Header("Автор", c) }
+            item {
+                Card(c) {
+                    Text("Поделиться приложением", color = c.accent, fontSize = 16.sp,
+                         modifier = Modifier.fillMaxWidth().clickable { shareApp(ctx) }.padding(vertical = 6.dp))
+                    HorizontalDivider(color = c.line)
+                    Text("Канал автора — Нейросети с нуля", color = c.accent, fontSize = 16.sp,
+                         modifier = Modifier.fillMaxWidth().clickable {
+                             ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Repository.AUTHOR_CHANNEL)))
+                         }.padding(vertical = 6.dp))
+                }
+            }
             item { Header("О приложении", c) }
             item {
                 Card(c) {
@@ -551,6 +569,15 @@ private fun GroupRow(g: GroupInfo, s: AppSettings, c: Swatch, showFaculty: Boole
         }
         if (g.id == s.groupId) Icon(Icons.Default.Check, null, tint = c.accent)
     }
+}
+
+private fun shareApp(ctx: android.content.Context) {
+    val send = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_SUBJECT, "Пары РГУ")
+        putExtra(Intent.EXTRA_TEXT, Repository.SHARE_MESSAGE + " " + Repository.SHARE_URL)
+    }
+    ctx.startActivity(Intent.createChooser(send, "Поделиться приложением"))
 }
 
 object BuildConfigCompat {
