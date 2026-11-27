@@ -5,24 +5,25 @@ struct SettingsView: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var scheme
-    @AppStorage("subgroup") private var subgroup = 1
-    @AppStorage("showMilitary") private var showMilitary = false
-    @AppStorage(ThemeID.storageKey) private var themeRaw = ThemeID.sand.rawValue
-    @AppStorage(AppearanceMode.storageKey) private var appearanceRaw = AppearanceMode.system.rawValue
+    @State private var showGroupPicker = false
 
-    private var theme: ThemeID { ThemeID.from(themeRaw) }
+    private var theme: ThemeID { model.settings.themeID }
     private var c: Swatch { theme.palette.colors(scheme) }
 
     var body: some View {
         NavigationStack {
             Form {
                 Section("Расписание") {
-                    Picker("Подгруппа", selection: $subgroup) {
+                    Button { showGroupPicker = true } label: {
+                        LabeledContent("Группа", value: model.settings.groupCode ?? "не выбрана")
+                            .foregroundStyle(c.ink)
+                    }
+                    Picker("Подгруппа", selection: $model.settings.subgroup) {
                         Text("1 подгруппа").tag(1)
                         Text("2 подгруппа").tag(2)
                     }
                     .pickerStyle(.segmented)
-                    Toggle("Показывать военку", isOn: $showMilitary)
+                    Toggle("Показывать военку", isOn: $model.settings.showMilitary)
                 }
                 .listRowBackground(c.card)
 
@@ -30,18 +31,18 @@ struct SettingsView: View {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 72), spacing: 12)], spacing: 12) {
                         ForEach(ThemeID.allCases) { t in
                             ThemeSwatch(theme: t, scheme: scheme, selected: t == theme)
-                                .onTapGesture { themeRaw = t.rawValue }
+                                .onTapGesture { model.settings.theme = t.rawValue }
                         }
                     }
                     .padding(.vertical, 6)
-                    Picker("Оформление", selection: $appearanceRaw) {
+                    Picker("Оформление", selection: $model.settings.appearance) {
                         ForEach(AppearanceMode.allCases) { Text($0.title).tag($0.rawValue) }
                     }
                 }
                 .listRowBackground(c.card)
 
                 Section {
-                    Label("Долгое нажатие на виджет → «Изменить виджет»: там своя подгруппа, тема и оформление.",
+                    Label("Виджет берёт группу, подгруппу и тему отсюда. Чтобы задать виджету свои: долгое нажатие → «Изменить виджет».",
                           systemImage: "square.text.square")
                         .font(.footnote)
                         .foregroundStyle(c.ink)
@@ -70,8 +71,10 @@ struct SettingsView: View {
             }
         }
         .tint(c.accent)
-        .preferredColorScheme(AppearanceMode.from(appearanceRaw).colorScheme)
-        .onChange(of: subgroup) { _, _ in WidgetCenter.shared.reloadAllTimelines() }
+        .preferredColorScheme(model.settings.appearanceMode.colorScheme)
+        .sheet(isPresented: $showGroupPicker) {
+            GroupPickerView().environmentObject(model)
+        }
     }
 
     private var appVersion: String {

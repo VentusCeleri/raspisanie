@@ -40,8 +40,9 @@ jobs:
           shot() { # name theme appearance [extra args]
             xcrun simctl terminate "$DEV" ru.ventusceleri.pary || true
             xcrun simctl ui "$DEV" appearance "$3"
-            xcrun simctl launch "$DEV" ru.ventusceleri.pary -theme "$2" -appearance "$3" "${@:4}"
-            sleep 9
+            sleep 3
+            xcrun simctl launch "$DEV" ru.ventusceleri.pary -groupId 9209 -groupCode РН-23-04 -theme "$2" -appearance "$3" "${@:4}"
+            sleep 14
             xcrun simctl io "$DEV" screenshot "shots/$1.png"
           }
           shot 1-main-sand-light sand light

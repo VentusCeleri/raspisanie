@@ -2,18 +2,17 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject private var model: AppModel
-    @AppStorage("subgroup") private var subgroup = 1
-    @AppStorage("showMilitary") private var showMilitary = false
-    @AppStorage(ThemeID.storageKey) private var themeRaw = ThemeID.sand.rawValue
     @Environment(\.colorScheme) private var scheme
 
     @State private var selectedDay = Schedule.startOfDay(Date())
     @State private var showSettings = false
 
-    private var c: Swatch { ThemeID.from(themeRaw).palette.colors(scheme) }
+    private var c: Swatch { model.palette.colors(scheme) }
+    private var needsGroup: Bool { model.settings.groupId == nil }
 
     private var filter: ScheduleFilter {
-        ScheduleFilter(subgroup: subgroup, showMilitary: showMilitary, includeCancelled: true)
+        ScheduleFilter(subgroup: model.settings.subgroup, showMilitary: model.settings.showMilitary,
+                       includeCancelled: true)
     }
 
     var body: some View {
@@ -21,7 +20,9 @@ struct ContentView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    if model.data == nil {
+                    if needsGroup {
+                        EmptyView()
+                    } else if model.data == nil {
                         emptyState
                     } else {
                         TimelineView(.periodic(from: .now, by: 30)) { ctx in
@@ -39,7 +40,7 @@ struct ContentView: View {
             }
             .refreshable { await model.refresh() }
             .background(c.bg.ignoresSafeArea())
-            .navigationTitle(model.data?.meta.group ?? "Пары")
+            .navigationTitle(model.settings.groupCode ?? "Пары")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(c.bg, for: .navigationBar)
             .toolbar {
@@ -56,6 +57,10 @@ struct ContentView: View {
         .onAppear {
             // Used by the screenshot workflow: `-openSettings` opens the settings sheet on launch.
             if ProcessInfo.processInfo.arguments.contains("-openSettings") { showSettings = true }
+        }
+        .sheet(isPresented: .constant(needsGroup)) {
+            GroupPickerView(isOnboarding: true)
+                .environmentObject(model)
         }
         .sheet(isPresented: $showSettings) {
             SettingsView()
@@ -89,7 +94,7 @@ struct ContentView: View {
             if model.offline && model.data != nil {
                 Label("Нет сети, показана последняя копия", systemImage: "wifi.slash")
             }
-            Text("\(subgroup) подгруппа · меняется в настройках")
+            Text("\(model.settings.subgroup) подгруппа · группа и подгруппа меняются в настройках")
         }
         .font(.footnote)
         .foregroundStyle(c.muted)

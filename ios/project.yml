@@ -7,7 +7,7 @@ options:
 settings:
   base:
     DEVELOPMENT_TEAM: P7FFVJWCKW
-    MARKETING_VERSION: "1.0"
+    MARKETING_VERSION: "1.1"
     CURRENT_PROJECT_VERSION: "1"
     SWIFT_VERSION: "5.0"
     CODE_SIGN_STYLE: Manual
@@ -22,6 +22,10 @@ targets:
     dependencies:
       - target: PairsWidget
     scheme: {}
+    entitlements:
+      path: App/Pary.entitlements
+      properties:
+        keychain-access-groups: ["$(AppIdentifierPrefix)ru.ventusceleri.pary.shared"]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: ru.ventusceleri.pary
@@ -45,6 +49,10 @@ targets:
     type: app-extension
     platform: iOS
     sources: [Widget, Shared]
+    entitlements:
+      path: Widget/PairsWidget.entitlements
+      properties:
+        keychain-access-groups: ["$(AppIdentifierPrefix)ru.ventusceleri.pary.shared"]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: ru.ventusceleri.pary.widget

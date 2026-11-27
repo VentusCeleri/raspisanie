@@ -4,53 +4,105 @@ import WidgetKit
 
 // MARK: - Configuration ("Изменить виджет")
 
+struct GroupEntity: AppEntity {
+    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Группа"
+    static var defaultQuery = GroupQuery()
+
+    let id: Int
+    let code: String
+    let faculty: String
+
+    var displayRepresentation: DisplayRepresentation {
+        faculty.isEmpty ? DisplayRepresentation(title: "\(code)")
+                        : DisplayRepresentation(title: "\(code)", subtitle: "\(faculty)")
+    }
+
+    init(_ g: GroupInfo) { id = g.id; code = g.code; faculty = g.f }
+}
+
+struct GroupQuery: EntityStringQuery {
+    private func all() async -> [GroupInfo] {
+        let cached = ScheduleSource.cachedGroups()
+        return cached.isEmpty ? await ScheduleSource.loadGroups() : cached
+    }
+
+    func entities(for identifiers: [Int]) async throws -> [GroupEntity] {
+        let list = await all()
+        return identifiers.compactMap { id in list.first { $0.id == id }.map(GroupEntity.init) }
+    }
+
+    func entities(matching string: String) async throws -> [GroupEntity] {
+        await all().filter { $0.matches(string) }.prefix(60).map(GroupEntity.init)
+    }
+
+    func suggestedEntities() async throws -> [GroupEntity] {
+        let list = await all()
+        let mine = SettingsStore.load().groupId
+        let first = list.filter { $0.id == mine }
+        return (first + list.filter { $0.id != mine }).prefix(60).map(GroupEntity.init)
+    }
+}
+
 enum SubgroupOption: String, AppEnum {
-    case first = "1", second = "2"
+    case app, first = "1", second = "2"
 
     static var typeDisplayRepresentation: TypeDisplayRepresentation = "Подгруппа"
     static var caseDisplayRepresentations: [SubgroupOption: DisplayRepresentation] = [
+        .app: "Как в приложении",
         .first: "1 подгруппа",
         .second: "2 подгруппа",
     ]
 
-    var number: Int { self == .second ? 2 : 1 }
+    func resolve(_ s: AppSettings) -> Int {
+        switch self {
+        case .app: return s.subgroup
+        case .first: return 1
+        case .second: return 2
+        }
+    }
 }
 
-/// Mirrors ThemeID: raw values must match.
+/// Mirrors ThemeID (raw values must match) plus "as in the app".
 enum ThemeOption: String, AppEnum {
-    case sand, ocean, forest, graphite, lilac, sunset, mint, contrast
+    case app, sand, ocean, forest, graphite, lilac, sunset, mint, contrast
 
     static var typeDisplayRepresentation: TypeDisplayRepresentation = "Тема"
     static var caseDisplayRepresentations: [ThemeOption: DisplayRepresentation] = [
+        .app: "Как в приложении",
         .sand: "Песок", .ocean: "Океан", .forest: "Лес", .graphite: "Графит",
         .lilac: "Сирень", .sunset: "Закат", .mint: "Мята", .contrast: "Контраст",
     ]
 
-    var theme: ThemeID { ThemeID.from(rawValue) }
+    func resolve(_ s: AppSettings) -> ThemeID { self == .app ? s.themeID : ThemeID.from(rawValue) }
 }
 
 enum AppearanceOption: String, AppEnum {
-    case system, light, dark
+    case app, system, light, dark
 
     static var typeDisplayRepresentation: TypeDisplayRepresentation = "Оформление"
     static var caseDisplayRepresentations: [AppearanceOption: DisplayRepresentation] = [
-        .system: "Как в системе", .light: "Светлое", .dark: "Тёмное",
+        .app: "Как в приложении", .system: "Как в системе", .light: "Светлое", .dark: "Тёмное",
     ]
 
-    var mode: AppearanceMode { AppearanceMode.from(rawValue) }
+    func resolve(_ s: AppSettings) -> AppearanceMode {
+        self == .app ? s.appearanceMode : AppearanceMode.from(rawValue)
+    }
 }
 
 struct PairsConfigIntent: WidgetConfigurationIntent {
     static var title: LocalizedStringResource = "Пары"
     static var description = IntentDescription("Текущая и следующая пара с аудиторией.")
 
-    @Parameter(title: "Подгруппа", default: .first)
+    @Parameter(title: "Группа", description: "Пусто — как в приложении")
+    var group: GroupEntity?
+
+    @Parameter(title: "Подгруппа", default: .app)
     var subgroup: SubgroupOption
 
-    @Parameter(title: "Тема", default: .sand)
+    @Parameter(title: "Тема", default: .app)
     var theme: ThemeOption
 
-    @Parameter(title: "Оформление", default: .system)
+    @Parameter(title: "Оформление", default: .app)
     var appearance: AppearanceOption
 }
 
@@ -60,11 +112,13 @@ struct PairsEntry: TimelineEntry {
     let date: Date
     let lessons: [TimedLesson]
     let hasData: Bool
+    let needsGroup: Bool
     let offline: Bool
     let theme: ThemeID
     let appearance: AppearanceMode
 
-    static func sample(_ date: Date = Date()) -> PairsEntry {
+    static func sample(_ date: Date = Date(), theme: ThemeID = .sand,
+                       appearance: AppearanceMode = .system) -> PairsEntry {
         let day = Schedule.iso(date)
         let raw = [
             Lesson(d: day, t: "10:15", s: "Исследование скважин и пластов", ty: "Лекция", r: "352", te: "Иванов И.И."),
@@ -74,7 +128,7 @@ struct PairsEntry: TimelineEntry {
         let data = ScheduleData(meta: .init(), lessons: raw)
         return PairsEntry(date: date,
                           lessons: data.timed(ScheduleFilter(subgroup: 1, showMilitary: false, includeCancelled: false)),
-                          hasData: true, offline: false, theme: .sand, appearance: .system)
+                          hasData: true, needsGroup: false, offline: false, theme: theme, appearance: appearance)
     }
 }
 
@@ -82,29 +136,38 @@ struct PairsProvider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> PairsEntry { .sample() }
 
     func snapshot(for configuration: PairsConfigIntent, in context: Context) async -> PairsEntry {
-        let result = context.isPreview ? LoadResult(data: ScheduleSource.cached(), offline: false)
-                                       : await ScheduleSource.load()
-        guard result.data != nil else {
-            let s = PairsEntry.sample()
-            return PairsEntry(date: s.date, lessons: s.lessons, hasData: true, offline: false,
-                              theme: configuration.theme.theme, appearance: configuration.appearance.mode)
+        let s = SettingsStore.load()
+        let group = configuration.group?.id ?? s.groupId
+        var result = LoadResult(data: nil, offline: false)
+        if let group {
+            result = context.isPreview ? LoadResult(data: ScheduleSource.cached(group: group), offline: false)
+                                       : await ScheduleSource.load(group: group)
         }
-        return entries(for: configuration, result: result, now: Date()).first!
+        guard result.data != nil else {
+            return .sample(theme: configuration.theme.resolve(s), appearance: configuration.appearance.resolve(s))
+        }
+        return entries(for: configuration, settings: s, group: group, result: result, now: Date()).first!
     }
 
     func timeline(for configuration: PairsConfigIntent, in context: Context) async -> Timeline<PairsEntry> {
         let now = Date()
-        let result = await ScheduleSource.load()
-        let list = entries(for: configuration, result: result, now: now)
-        // Refetch data hourly (sooner when offline); entries in between redraw at each class start/end.
-        let reload = now.addingTimeInterval(result.offline ? 15 * 60 : 60 * 60)
+        let s = SettingsStore.load()
+        let group = configuration.group?.id ?? s.groupId
+        var result = LoadResult(data: nil, offline: false)
+        if let group { result = await ScheduleSource.load(group: group) }
+        let list = entries(for: configuration, settings: s, group: group, result: result, now: now)
+        // Refetch data hourly (sooner when offline or no group yet); entries in between redraw at each class start/end.
+        let reload = now.addingTimeInterval(result.offline || group == nil ? 15 * 60 : 60 * 60)
         return Timeline(entries: list, policy: .after(reload))
     }
 
-    private func entries(for config: PairsConfigIntent, result: LoadResult, now: Date) -> [PairsEntry] {
-        let filter = ScheduleFilter(subgroup: config.subgroup.number, showMilitary: false, includeCancelled: false)
+    private func entries(for config: PairsConfigIntent, settings s: AppSettings, group: Int?,
+                         result: LoadResult, now: Date) -> [PairsEntry] {
+        let filter = ScheduleFilter(subgroup: config.subgroup.resolve(s), showMilitary: false, includeCancelled: false)
         let horizon = now.addingTimeInterval(14 * 24 * 3600)
         let lessons = (result.data?.timed(filter) ?? []).filter { $0.end > now && $0.start < horizon }
+        let theme = config.theme.resolve(s)
+        let appearance = config.appearance.resolve(s)
 
         var dates: Set<Date> = [now]
         let redrawUntil = now.addingTimeInterval(26 * 3600)
@@ -115,8 +178,8 @@ struct PairsProvider: AppIntentTimelineProvider {
         dates.insert(midnight.addingTimeInterval(1))
 
         return dates.sorted().prefix(60).map {
-            PairsEntry(date: $0, lessons: lessons, hasData: result.data != nil, offline: result.offline,
-                       theme: config.theme.theme, appearance: config.appearance.mode)
+            PairsEntry(date: $0, lessons: lessons, hasData: result.data != nil, needsGroup: group == nil,
+                       offline: result.offline, theme: theme, appearance: appearance)
         }
     }
 }
@@ -168,7 +231,11 @@ struct PairsWidgetView: View {
 
     @ViewBuilder
     private var content: some View {
-        if !entry.hasData {
+        if entry.needsGroup {
+            Text("Открой «Пары» и выбери группу")
+                .font(.caption)
+                .foregroundStyle(isAccessory ? Color.primary : c.ink)
+        } else if !entry.hasData {
             Text("Открой приложение «Пары» с интернетом")
                 .font(.caption)
                 .foregroundStyle(isAccessory ? Color.primary : c.ink)
